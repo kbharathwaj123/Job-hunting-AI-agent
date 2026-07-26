@@ -1,0 +1,90 @@
+# Job Search Criteria
+job_criteria:
+  roles:
+    - "AI Orchestrator"
+    - "AI QA Engineer"
+    - "SDET"
+    - "QA Automation Engineer"
+    - "Test Automation Engineer"
+    - "Automation Test Engineer"
+    - "AI Automation Engineer"
+    - "Manual + Automation Tester"
+    - "Software Test Engineer"
+    - "QA Engineer"
+
+  locations:
+    - "Pune"
+    - "Hyderabad"
+    - "Bangalore"
+    - "Kochi"
+
+  min_experience_years: 2
+  max_experience_years: 5
+
+  min_company_rating: 3.5      # rating must be >= 3.5 out of 5
+  min_company_reviews: 120     # must have at least 120 reviews
+
+  wfh_preference: "remote_or_hybrid"   # remote_only | hybrid_only | remote_or_hybrid | any
+
+  exclude_keywords:
+    - "Senior Staff"
+    - "Lead 10+ years"
+    - "Principal"
+    - "Director"
+    - "8+ years"
+    - "10+ years"
+    - "Intern"
+
+  verify_company: true
+
+# Source Configuration
+sources:
+  linkedin:
+    enabled: true
+    auto_submit: true
+  naukri:
+    enabled: true
+    auto_submit: true
+  indeed:
+    enabled: true
+    auto_submit: true
+  ats_boards:
+    enabled: true
+    auto_submit: true
+
+# File Paths
+paths:
+  base_resume: "data/base_resume.docx"
+  base_resume_pdf: "data/base_resume.pdf"
+  tailored_output_dir: "data/tailored_resumes"
+
+# Automation Safeguards
+automation:
+  headless: false              # set false to watch browser action
+  daily_application_cap: 30    # safety limit per day
+  min_delay_between_app_seconds: 15
+  max_delay_between_app_seconds: 45
+
+# Local LLM settings (Ollama)
+llm:
+  provider: "ollama"
+  model: "llama3.1:8b"
+  host: "http://localhost:11434"
+
+# Profile answers for screening questions
+profile_answers:
+  first_name: "YourFirstName"
+  last_name: "YourLastName"
+  full_name: "Your Full Name"
+  total_experience_years: "3"
+  current_ctc: "6 LPA"
+  expected_ctc: "11-14 LPA"
+  notice_period: "Immediate / 15 days"
+  current_location: "Your City, India"
+  willing_to_relocate: "Yes, open to relocation"
+  work_authorization: "Authorized to work"
+  highest_education: "B.Tech"
+  linkedin_url: ""
+  portfolio_url: ""
+  phone: "9999999999"
+  email: "your.email@example.com"

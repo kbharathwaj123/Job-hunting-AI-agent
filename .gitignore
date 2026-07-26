@@ -1,0 +1,32 @@
+# Virtual Environment
+venv/
+.venv/
+env/
+ENV/
+
+# Python cache & compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Sensitive Personal Data & Browser Profile (CRITICAL - DO NOT COMMIT)
+data/browser_profile/
+data/applications.db
+data/base_resume.docx
+data/base_resume.pdf
+
+# Personal Configuration (Contains private email, phone, details)
+config/config.yaml
+
+# Generated Reports & Scratch Files
+*.pdf
+JobsApplied.pdf
+scratch/
+
+# OS & IDE Files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
