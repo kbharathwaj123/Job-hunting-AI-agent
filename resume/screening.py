@@ -17,35 +17,81 @@ from rapidfuzz import fuzz
 OLLAMA_HOST = "http://localhost:11434"
 MODEL = "llama3.1:8b"
 
-# question phrase -> profile_answers key
+# Comprehensive ATS Synonym & Terminology Map across Workday, Greenhouse, Lever, Taleo, iCIMS, Ashby, etc.
 QUESTION_KEY_MAP = {
     "first name": "first_name",
     "given name": "first_name",
+    "forename": "first_name",
+    "first/given name": "first_name",
+    "personal name": "first_name",
     "last name": "last_name",
     "surname": "last_name",
     "family name": "last_name",
+    "last/family name": "last_name",
+    "second name": "last_name",
     "full name": "full_name",
+    "applicant name": "full_name",
+    "candidate name": "full_name",
     "name": "full_name",
     "total experience": "total_experience_years",
     "years of experience": "total_experience_years",
+    "work experience": "total_experience_years",
+    "relevant experience": "total_experience_years",
+    "overall experience": "total_experience_years",
+    "experience in years": "total_experience_years",
     "current ctc": "current_ctc",
     "current salary": "current_ctc",
+    "present ctc": "current_ctc",
+    "current compensation": "current_ctc",
+    "present salary": "current_ctc",
     "expected ctc": "expected_ctc",
     "expected salary": "expected_ctc",
+    "desired ctc": "expected_ctc",
+    "desired salary": "expected_ctc",
+    "salary expectation": "expected_ctc",
+    "expected compensation": "expected_ctc",
     "notice period": "notice_period",
+    "how soon can you join": "notice_period",
+    "earliest start date": "notice_period",
+    "joining time": "notice_period",
+    "availability to start": "notice_period",
+    "lead time": "notice_period",
     "current location": "current_location",
+    "present city": "current_location",
+    "current city": "current_location",
+    "residence location": "current_location",
     "willing to relocate": "willing_to_relocate",
+    "open to relocation": "willing_to_relocate",
     "relocate": "willing_to_relocate",
+    "relocation assistance": "willing_to_relocate",
+    "sponsorship": "requires_visa_sponsorship",
+    "visa sponsorship": "requires_visa_sponsorship",
+    "require sponsorship": "requires_visa_sponsorship",
+    "sponsorship now or in the future": "requires_visa_sponsorship",
+    "visa status": "requires_visa_sponsorship",
+    "require visa": "requires_visa_sponsorship",
     "authorized to work": "work_authorization",
     "work authorization": "work_authorization",
-    "sponsorship": "work_authorization",
+    "work visa": "work_authorization",
+    "work permit": "work_authorization",
+    "legally authorized": "work_authorization",
     "highest education": "highest_education",
     "qualification": "highest_education",
+    "degree": "highest_education",
+    "educational qualification": "highest_education",
+    "highest degree": "highest_education",
     "linkedin profile": "linkedin_url",
+    "linkedin url": "linkedin_url",
     "portfolio": "portfolio_url",
+    "github url": "portfolio_url",
+    "personal website": "portfolio_url",
+    "website": "portfolio_url",
     "phone number": "phone",
     "contact number": "phone",
+    "mobile number": "phone",
+    "phone": "phone",
     "email address": "email",
+    "email": "email",
 }
 
 LLM_FALLBACK_PROMPT = """You are filling out a job application screening question truthfully,
@@ -95,8 +141,24 @@ def llm_answer(question: str, resume_text: str, profile_answers: dict) -> str:
     return resp.json().get("response", "").strip()
 
 
+from browser.memory import memory
+
+
 def answer_question(question: str, resume_text: str, profile_answers: dict) -> str:
+    # 0. Check self-learning memory store first
+    learned = memory.get_question_answer(question)
+    if learned:
+        print(f"  [MEMORY STORE 🧠] Using learned answer for '{question[:30]}...' -> '{learned}'")
+        return learned
+
+    # 1. Check fixed profile_answers key map
     fixed = match_fixed_answer(question, profile_answers)
     if fixed:
+        memory.save_question_answer(question, fixed)
         return fixed
-    return llm_answer(question, resume_text, profile_answers)
+
+    # 2. Fall back to local LLM
+    ans = llm_answer(question, resume_text, profile_answers)
+    if ans:
+        memory.save_question_answer(question, ans)
+    return ans

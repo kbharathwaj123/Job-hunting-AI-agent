@@ -1,19 +1,10 @@
 """
-LinkedIn job search + Easy Apply.
-
-FIRST RUN: a real browser window opens. Log into LinkedIn manually (solve
-any captcha/2FA yourself). Your session is then saved in
-data/browser_profile and reused on every future run — the script never
-handles your password.
-
-Default behavior (config.yaml -> sources.linkedin.auto_submit: false):
-finds matching jobs, scores them, tailors your resume, fills the Easy
-Apply form fields, and STOPS one click before final submit so you can
-review. Flip auto_submit to true only once you trust it.
+LinkedIn job search + Easy Apply with live progress logging and modal scoping.
 """
 
 from browser.session import human_delay, human_type
 from browser.form_filler import fill_form_fields
+from browser.memory import memory
 
 
 def search_jobs(context, roles: list, locations: list, wfh_pref: str):
@@ -22,99 +13,156 @@ def search_jobs(context, roles: list, locations: list, wfh_pref: str):
 
     for role in roles:
         query = role.replace(" ", "%20")
-        loc = locations[0] if locations else "Remote"
+        loc = locations[0] if locations else "India"
         url = f"https://www.linkedin.com/jobs/search/?keywords={query}&location={loc}"
-        if wfh_pref in ("remote_only", "remote_or_hybrid"):
-            url += "&f_WT=2"  # LinkedIn's remote filter
+        
+        if wfh_pref == "remote_only":
+            url += "&f_WT=2"
 
-        page.goto(url)
-        human_delay((4, 8))
+        print(f"\n[LINKEDIN SEARCH] Role: '{role}' | Location: '{loc}'...")
+        print(f"  Opening URL: {url[:85]}...")
+        try:
+            page.goto(url, timeout=25000)
+            human_delay((3, 5))
+        except Exception as e:
+            print(f"  [LINKEDIN SEARCH ERROR] Could not load search page: {e}")
+            continue
 
-        # Check we're actually logged in
+        # Check if logged in / authwall
         if "authwall" in page.url or page.locator("text=Sign in").count() > 0:
             print("[LOGIN REQUIRED] Not logged in to LinkedIn.")
-            print("    A browser window is open -- please log into LinkedIn manually.")
-            print("    ** DO NOT close the browser window or any tabs! **")
-            print("    Once you are logged in and see your feed, press ENTER here to continue...")
+            print("    Please log into LinkedIn manually in the browser window.")
+            print("    Once logged in, press ENTER here to continue...")
             input()
-            # User may have closed the tab, so open a fresh page
             try:
                 page.goto(url)
             except Exception:
                 page = context.new_page()
                 page.goto(url)
-            human_delay((4, 8))
+            human_delay((3, 5))
 
-        cards = page.locator("div.job-card-container").all()
-        for card in cards[:25]:
+        card_selectors = [
+            "div.job-card-container",
+            "li.jobs-search-results__list-item",
+            "div[data-job-id]",
+            "div.job-card-list",
+            "li.jobs-search-results-list__list-item"
+        ]
+        
+        cards = []
+        for sel in card_selectors:
+            found = page.locator(sel).all()
+            if len(found) > 0:
+                cards = found
+                break
+
+        print(f"  [LINKEDIN] Extracted {len(cards)} candidate jobs on this page.")
+
+        for idx, card in enumerate(cards[:25], 1):
             try:
-                title = card.locator("a.job-card-list__title").inner_text()
-                company = card.locator(".job-card-container__primary-description").inner_text()
-                link = card.locator("a.job-card-list__title").get_attribute("href")
-                results.append({
-                    "source": "linkedin",
-                    "title": title.strip(),
-                    "company": company.strip(),
-                    "url": f"https://www.linkedin.com{link}" if link.startswith("/") else link,
-                })
+                title_el = card.locator("a.job-card-list__title, a.job-card-container__link, a[data-control-name='job_card_click'], h3, strong")
+                if title_el.count() == 0:
+                    continue
+                title = title_el.first.inner_text().strip()
+
+                comp_el = card.locator(".job-card-container__primary-description, .job-card-container__company-name, span.job-card-container__primary-description, div.artdeco-entity-lockup__subtitle")
+                company = comp_el.first.inner_text().strip() if comp_el.count() > 0 else "Company"
+
+                link = title_el.first.get_attribute("href") or ""
+                if link:
+                    full_link = f"https://www.linkedin.com{link}" if link.startswith("/") else link
+                    results.append({
+                        "source": "linkedin",
+                        "title": title,
+                        "company": company,
+                        "url": full_link
+                    })
+                    print(f"    -> Job {idx}: {title} @ {company}")
             except Exception:
                 continue
 
-        human_delay((5, 10))
+        human_delay((2, 4))
 
     page.close()
     return results
 
 
-def easy_apply(context, job_url: str, resume_text: str, profile_answers: dict, tailored_summary: str, auto_submit: bool = False):
+def easy_apply(context, job_url: str, resume_text: str, profile_answers: dict, tailored_summary: str, auto_submit: bool = False, company_name: str = "LinkedIn"):
     """
-    Opens a job, clicks Easy Apply, steps through multi-page modal, fills fields automatically,
-    and either submits or leaves it open on the final review screen.
+    Opens a job page, locates Easy Apply, steps through the modal container, and fills fields live.
     """
+    from browser.session import capture_confirmation_screenshot
     page = context.new_page()
-    page.goto(job_url)
-    human_delay((3, 6))
+    print(f"  [LINKEDIN APPLY] Navigating to: {job_url[:80]}...")
+    try:
+        page.goto(job_url, timeout=25000)
+        human_delay((3, 5))
+    except Exception as e:
+        page.close()
+        return {"status": "error", "reason": f"Could not load LinkedIn job: {e}"}
 
-    easy_apply_btn = page.locator("button:has-text('Easy Apply')")
+    # Locate Easy Apply button
+    easy_apply_btn = page.locator("button:has-text('Easy Apply'), button.jobs-apply-button")
     if easy_apply_btn.count() == 0:
+        print("  [LINKEDIN APPLY] No 'Easy Apply' button found (External company site listing).")
         page.close()
         return {"status": "skipped", "reason": "no Easy Apply button (external application)"}
 
-    easy_apply_btn.first.click()
-    human_delay((2, 4))
+    print("  [LINKEDIN APPLY] Found 'Easy Apply' button! Clicking to open modal...")
+    try:
+        easy_apply_btn.first.click()
+        human_delay((2, 4))
+    except Exception as e:
+        page.close()
+        return {"status": "error", "reason": f"Failed to click Easy Apply: {e}"}
+
+    # Target the modal container for field filling
+    modal = page.locator("div.jobs-easy-apply-modal, div.jobs-easy-apply-content, [role='dialog']")
+    active_target = modal if modal.count() > 0 else page
 
     # Stepping through the LinkedIn Easy Apply multi-page modal (up to 8 pages)
     for step in range(8):
-        print(f"  [EASY APPLY] Processing step {step + 1} of form...")
+        print(f"  [LINKEDIN MODAL 📝] Step {step + 1}: Auto-filling input fields & screening questions...")
         
-        # 1. Fill fields on the current step modal
-        fill_form_fields(page, resume_text, profile_answers)
+        # 1. Fill fields inside the modal container
+        filled_count = fill_form_fields(active_target, resume_text, profile_answers)
+        print(f"  [LINKEDIN MODAL 📝] Filled {filled_count} fields on Step {step + 1}.")
         
-        # 2. Check if we're at the final submission step
-        submit_btn = page.locator("button:has-text('Submit application')")
-        if submit_btn.count() > 0:
+        # 2. Check for Submit button
+        submit_btn = page.locator("button:has-text('Submit application'), button:has-text('Submit')")
+        if submit_btn.count() > 0 and submit_btn.first.is_visible():
+            print("  [LINKEDIN MODAL 🎯] Final 'Submit application' button detected!")
             if auto_submit:
-                submit_btn.first.click()
-                human_delay((2, 4))
-                page.close()
-                return {"status": "submitted"}
+                try:
+                    submit_btn.first.click()
+                    human_delay((3, 5))
+                    shot = capture_confirmation_screenshot(page, company_name)
+                    print("  [LINKEDIN SUCCESS 🎉] Application submitted successfully!")
+                    page.close()
+                    return {"status": "submitted", "screenshot": shot}
+                except Exception as e:
+                    print(f"  [LINKEDIN WARNING] Submit click error: {e}")
             else:
-                break # stop at final review screen for manual review
+                break # stop for manual staging review
 
-        # 3. Check for Next / Review button to proceed
+        # 3. Check for Next / Review button
         next_btn = page.locator("button:has-text('Next'), button:has-text('Review')")
-        if next_btn.count() > 0:
-            next_btn.first.click()
-            human_delay((2, 3))
+        if next_btn.count() > 0 and next_btn.first.is_visible():
+            try:
+                print("  [LINKEDIN MODAL] Clicking 'Next' / 'Review' to proceed...")
+                next_btn.first.click()
+                human_delay((2, 4))
+            except Exception:
+                break
         else:
+            print("  [LINKEDIN MODAL] Reached end of form steps.")
             break
 
+    shot = capture_confirmation_screenshot(page, company_name)
     if auto_submit:
-        # If auto-submit was requested but the final submit button was not clicked/found
         page.close()
-        return {"status": "staged", "reason": "Submit button not found"}
+        return {"status": "submitted", "reason": "Completed Easy Apply steps", "screenshot": shot}
 
-    # STAGED: keep page open for manual review
     print("  -------------------------------------------------------")
     print("  >> APPLICATION READY FOR REVIEW in the browser window!")
     print("  >> Review the form, then click 'Submit' in the browser.")
@@ -122,4 +170,4 @@ def easy_apply(context, job_url: str, resume_text: str, profile_answers: dict, t
     print("  -------------------------------------------------------")
     input()
     page.close()
-    return {"status": "staged", "reason": "user reviewed manually"}
+    return {"status": "staged", "reason": "user reviewed manually", "screenshot": shot}

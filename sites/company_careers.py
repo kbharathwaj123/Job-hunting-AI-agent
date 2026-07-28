@@ -1,33 +1,18 @@
 """
-Company Careers Page & ATS Application Module.
-
-Handles applying directly on official company websites and ATS platforms:
-  - Workday (*.myworkdayjobs.com)
-  - Greenhouse (boards.greenhouse.io)
-  - Lever (jobs.lever.co)
-  - SmartRecruiters (jobs.smartrecruiters.com)
-  - Taleo (*.taleo.net)
-  - ICIMS (*.icims.com)
-  - Ashby (jobs.ashbyhq.com)
-  - Custom Company Careers Pages (company.com/careers, company.com/jobs)
-
-Features:
-  - Google SSO / Login detection and automated authentication
-  - Multi-step form filling via browser.form_filler
-  - File upload for base_resume.docx / base_resume.pdf
-  - Validation warning & error detection / auto-fix
+Company Careers Page & ATS Application Module with Cookie Banner Dismissal,
+Resume Auto-Parsing, Account Creation/Google SSO, and Multi-Step Portal Form Filling.
 """
 
 import re
 import urllib.parse
 from playwright.sync_api import Page, BrowserContext
 from browser.session import human_delay, human_type
-from browser.form_filler import fill_form_fields, detect_and_fix_validation_errors, handle_file_uploads
+from browser.form_filler import fill_form_fields, detect_and_fix_validation_errors, handle_file_uploads, resolve_valid_resume_path
 
 
 def find_official_careers_url(page: Page, company_name: str, role: str = "") -> str:
     """
-    Searches Google / DuckDuckGo for the company's official career portal or job application page.
+    Searches Google for the company's official career portal or ATS job application page.
     """
     query = f"{company_name} official careers {role} jobs apply"
     url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
@@ -39,7 +24,6 @@ def find_official_careers_url(page: Page, company_name: str, role: str = "") -> 
     except Exception:
         return ""
 
-    # Look for search result links pointing to official company domains or ATS platforms
     ats_keywords = [
         "myworkdayjobs.com", "greenhouse.io", "lever.co", "smartrecruiters.com",
         "taleo.net", "icims.com", "ashbyhq.com", "careers", "jobs"
@@ -51,7 +35,6 @@ def find_official_careers_url(page: Page, company_name: str, role: str = "") -> 
             href = link.get_attribute("href") or ""
             href_lower = href.lower()
             
-            # Skip search engine / aggregator internal links
             if any(ignore in href_lower for ignore in ["google.com", "youtube.com", "wikipedia.org", "naukri.com", "linkedin.com", "indeed.com"]):
                 continue
                 
@@ -64,24 +47,100 @@ def find_official_careers_url(page: Page, company_name: str, role: str = "") -> 
     return ""
 
 
+def dismiss_cookie_popups(page: Page):
+    """Dismisses cookie consent banners and privacy popups that block portal inputs."""
+    cookie_selectors = [
+        "button:has-text('Accept All')", "button:has-text('Accept Cookies')",
+        "button:has-text('Allow All')", "button:has-text('I Agree')",
+        "button:has-text('Got It')", "button:has-text('Accept')",
+        "button#onetrust-accept-btn-handler", "#accept-cookies-button",
+        "button.cookie-accept", "a:has-text('Accept')"
+    ]
+    for sel in cookie_selectors:
+        try:
+            el = page.locator(sel)
+            if el.count() > 0 and el.first.is_visible():
+                el.first.click()
+                print("  [PORTAL COOKIES 🍪] Dismissed cookie consent banner.")
+                human_delay((0.5, 1.5))
+                break
+        except Exception:
+            continue
+
+
+def handle_otp_or_captcha_verification(page: Page, profile_answers: dict = None) -> bool:
+    """
+    Detects OTP email verification walls or CAPTCHA puzzles on company portals.
+    First attempts automated email OTP retrieval via IMAP; falls back to terminal prompt.
+    """
+    try:
+        # 1. Detect OTP verification fields
+        otp_field = page.locator("input[name*='otp'], input[name*='code'], input[id*='otp'], input[placeholder*='code'], input[autocomplete='one-time-code']")
+        if otp_field.count() > 0 and otp_field.first.is_visible():
+            print("\n  [ACTION REQUIRED 🔑] OTP Verification Code required by company portal!")
+            
+            # Attempt 1: Fully automated email inbox OTP fetch
+            otp_code = ""
+            email_addr = (profile_answers or {}).get("email", "kaithojubharathwaj123@gmail.com")
+            app_pass = (profile_answers or {}).get("gmail_app_password", "")
+            
+            if app_pass:
+                from browser.email_otp import fetch_latest_otp
+                otp_code = fetch_latest_otp(email_addr, app_pass, max_wait_seconds=30)
+                
+            # Attempt 2: Fallback to terminal input if not auto-retrieved
+            if not otp_code:
+                try:
+                    otp_code = input("  >> Enter 6-digit OTP code sent to your email (or press Enter to skip): ").strip()
+                except Exception:
+                    pass
+
+            if otp_code:
+                otp_field.first.fill(otp_code)
+                human_delay((1, 2))
+                verify_btn = page.locator("button:has-text('Verify'), button:has-text('Submit'), button:has-text('Confirm')")
+                if verify_btn.count() > 0 and verify_btn.first.is_visible():
+                    verify_btn.first.click()
+                    human_delay((3, 5))
+                return True
+
+        # 2. Detect CAPTCHA / Cloudflare Turnstile puzzles
+        captcha_el = page.locator("iframe[src*='recaptcha'], iframe[src*='turnstile'], iframe[src*='hcaptcha'], #captcha, .g-recaptcha")
+        if captcha_el.count() > 0 and captcha_el.first.is_visible():
+            print("\n  [CAPTCHA DETECTED 🧩] A security CAPTCHA puzzle was presented by the website.")
+            print("  >> Please solve the CAPTCHA in the open browser window.")
+            print("  >> Press ENTER here once solved to resume application...")
+            try:
+                input()
+                human_delay((2, 4))
+                return True
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return False
+
+
 def handle_login_or_account_creation(page: Page, profile_answers: dict) -> bool:
     """
     Detects login/account walls on career portals and attempts Google SSO or auto-login/register.
     """
     try:
+        # Check for OTP or CAPTCHA first
+        handle_otp_or_captcha_verification(page, profile_answers)
+
         text = page.locator("body").inner_text().lower()
         if not any(term in text for term in ["sign in", "log in", "create account", "register"]):
-            return False  # No login wall
+            return False
             
-        # 1. Check for Google SSO button ("Sign in with Google", "Continue with Google")
         google_btn = page.locator("button:has-text('Google'), a:has-text('Google'), [aria-label*='Google'], div:has-text('Sign in with Google')")
         if google_btn.count() > 0 and google_btn.first.is_visible():
             print("  [LOGIN] Found 'Sign in with Google' option. Clicking SSO...")
             google_btn.first.click()
             human_delay((3, 6))
+            handle_otp_or_captcha_verification(page, profile_answers)
             return True
 
-        # 2. Check for Account Creation / Registration inputs
         email = profile_answers.get("email", "kaithojubharathwaj123@gmail.com")
         email_field = page.locator("input[type='email'], input[name*='email'], input[id*='email']")
         if email_field.count() > 0 and email_field.first.is_visible():
@@ -90,21 +149,36 @@ def handle_login_or_account_creation(page: Page, profile_answers: dict) -> bool:
                 print(f"  [ACCOUNT SETUP] Auto-filled login email: {email}")
                 human_delay((1, 2))
 
-        # Check password fields
         pass_field = page.locator("input[type='password']")
         if pass_field.count() > 0 and pass_field.first.is_visible():
             pass_field.first.fill("JobAgentPass@2026")
             print("  [ACCOUNT SETUP] Auto-filled password.")
             human_delay((1, 2))
 
-        # Check for Create Account / Submit Login button
         login_sub_btn = page.locator("button:has-text('Sign In'), button:has-text('Log In'), button:has-text('Create Account'), button:has-text('Register')")
         if login_sub_btn.count() > 0 and login_sub_btn.first.is_visible():
             login_sub_btn.first.click()
             human_delay((3, 5))
+            handle_otp_or_captcha_verification(page, profile_answers)
             return True
     except Exception:
         pass
+    return False
+
+
+def trigger_resume_autofill(page: Page, resume_file_path: str = "") -> bool:
+    """Detects 'Apply with Resume' / 'Autofill with Resume' buttons and triggers resume deduction."""
+    autofill_btn = page.locator("button:has-text('Autofill with Resume'), button:has-text('Apply with Resume'), a:has-text('Autofill with Resume')")
+    if autofill_btn.count() > 0 and autofill_btn.first.is_visible():
+        try:
+            print("  [PORTAL AUTOFILL 📄] Found 'Autofill with Resume' feature. Uploading resume for automatic parsing...")
+            valid_path = resolve_valid_resume_path(resume_file_path)
+            handle_file_uploads(page, valid_path)
+            autofill_btn.first.click()
+            human_delay((4, 7))  # wait for ATS parser to deduce and populate fields
+            return True
+        except Exception:
+            pass
     return False
 
 
@@ -118,7 +192,6 @@ def apply_company_website(context: BrowserContext, company_name: str, role: str,
     page.set_default_timeout(30000)
     
     target_url = job_url
-    # If original URL is a generic job aggregator, try finding the direct official company page
     if any(aggregator in job_url.lower() for aggregator in ["naukri.com", "indeed.com"]):
         official_url = find_official_careers_url(page, company_name, role)
         if official_url:
@@ -132,10 +205,16 @@ def apply_company_website(context: BrowserContext, company_name: str, role: str,
         page.close()
         return {"status": "error", "reason": f"Could not load official careers page: {e}"}
 
-    # 1. Handle Login or Account Creation if present
+    # 1. Dismiss Cookie Banners / Privacy overlays
+    dismiss_cookie_popups(page)
+
+    # 2. Handle Login / Account Creation if present
     handle_login_or_account_creation(page, profile_answers)
 
-    # 2. Look for initial Apply button on careers page
+    # 3. Trigger ATS "Apply with Resume" / Resume Parsing if present
+    trigger_resume_autofill(page, resume_file_path)
+
+    # 4. Look for initial Apply button on careers page
     apply_btn = page.locator("button:has-text('Apply'), a:has-text('Apply'), button:has-text('Apply Now'), a:has-text('Apply Now')")
     if apply_btn.count() > 0 and apply_btn.first.is_visible():
         try:
@@ -144,17 +223,19 @@ def apply_company_website(context: BrowserContext, company_name: str, role: str,
         except Exception:
             pass
 
-    # Re-check login wall after clicking apply
+    dismiss_cookie_popups(page)
     handle_login_or_account_creation(page, profile_answers)
 
-    # 3. Multi-Step Form Filling & File Upload (up to 8 steps for complex portals like Workday/Taleo)
+    # 5. Multi-Step Form Filling & Resume Upload (up to 8 steps for complex portals like Workday/Taleo/Greenhouse)
     for step in range(8):
-        print(f"  [PORTAL FORM] Step {step + 1}: Auto-filling form fields & uploading resume...")
+        print(f"  [PORTAL FORM] Step {step + 1}: Auto-filling form fields & verifying mandatory resume...")
         
-        # Attach resume file
+        dismiss_cookie_popups(page)
+        
+        # Mandatory resume attachment / re-check
         handle_file_uploads(page, resume_file_path)
         
-        # Auto-fill form inputs
+        # Auto-fill form inputs with expanded ATS terminology map
         fill_form_fields(page, resume_text, profile_answers, resume_file_path)
         
         # Detect and fix validation warnings/errors
@@ -167,13 +248,15 @@ def apply_company_website(context: BrowserContext, company_name: str, role: str,
                 try:
                     submit_btn.first.click()
                     human_delay((3, 5))
+                    from browser.session import capture_confirmation_screenshot
+                    shot = capture_confirmation_screenshot(page, company_name)
                     print("  [COMPANY WEBSITE APPLY] Successfully submitted application!")
                     page.close()
-                    return {"status": "submitted"}
+                    return {"status": "submitted", "screenshot": shot}
                 except Exception as e:
                     print(f"  [WARNING] Submit click error: {e}")
             else:
-                break # stop for manual staging review
+                break
 
         # Check for Next / Continue / Save & Continue button
         next_btn = page.locator("button:has-text('Next'), button:has-text('Continue'), button:has-text('Save & Continue'), a:has-text('Next')")
@@ -186,11 +269,12 @@ def apply_company_website(context: BrowserContext, company_name: str, role: str,
         else:
             break
 
+    from browser.session import capture_confirmation_screenshot
+    shot = capture_confirmation_screenshot(page, company_name)
     if auto_submit:
         page.close()
-        return {"status": "submitted", "reason": "Completed portal application steps"}
+        return {"status": "submitted", "reason": "Completed portal application steps", "screenshot": shot}
 
-    # Staged for manual review
     print("  -------------------------------------------------------")
     print("  >> APPLICATION READY FOR REVIEW on Official Website!")
     print("  >> Review the form in the browser, then click Submit.")
@@ -198,4 +282,4 @@ def apply_company_website(context: BrowserContext, company_name: str, role: str,
     print("  -------------------------------------------------------")
     input()
     page.close()
-    return {"status": "staged", "reason": "user reviewed manually"}
+    return {"status": "staged", "reason": "user reviewed manually", "screenshot": shot}

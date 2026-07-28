@@ -9,26 +9,21 @@ from rapidfuzz import fuzz
 def find_label_for_element(page, element) -> str:
     """Find a readable text label or description associated with an input element."""
     try:
-        # 1. Look for <label> tag with 'for' matching the element's id
         el_id = element.get_attribute("id")
         if el_id:
             label_el = page.locator(f"label[for='{el_id}']")
             if label_el.count() > 0:
                 return label_el.first.inner_text().strip()
                 
-        # 2. Check parent element or adjacent labels
         parent = element.locator("xpath=..")
         if parent.count() > 0:
             parent_text = parent.first.inner_text().strip()
-            # If the parent text is reasonably short, it's likely the question/label
             lines = [l.strip() for l in parent_text.split('\n') if l.strip()]
             if lines:
-                # filter out input element contents
                 filtered = [l for l in lines if len(l) < 150 and not l.startswith('http')]
                 if filtered:
                     return filtered[0]
 
-        # 3. Check placeholder, aria-label, name attributes
         placeholder = element.get_attribute("placeholder")
         if placeholder:
             return placeholder.strip()
@@ -60,17 +55,14 @@ def select_best_option(select_element, question: str, resume_text: str, profile_
         if not choices:
             return None
             
-        # Get the targeted answer based on the question
         ideal_answer = answer_question(question, resume_text, profile_answers)
         if not ideal_answer:
             return choices[0]
             
-        # 1. Direct substring check
         for choice in choices:
             if choice.lower() in ideal_answer.lower() or ideal_answer.lower() in choice.lower():
                 return choice
                 
-        # 2. Fuzzy matching score
         best_choice = None
         best_score = 0
         for choice in choices:
@@ -82,49 +74,92 @@ def select_best_option(select_element, question: str, resume_text: str, profile_
         if best_score >= 40:
             return best_choice
             
-        return choices[0]  # fallback to first valid option
+        return choices[0]
     except Exception:
         return None
 
 
+def resolve_valid_resume_path(resume_file_path: str = "") -> str:
+    """Resolves a valid existing resume file path from config or defaults."""
+    candidates = [
+        resume_file_path,
+        "c:/projects/job-agent/data/Bharathwaj_Kaithoju_Resume_Updated.pdf",
+        "c:/projects/job-agent/data/Bharathwaj_Kaithoju_Resume_Updated.docx",
+        "c:/projects/job-agent/data/base_resume.pdf",
+        "c:/projects/job-agent/data/base_resume.docx",
+    ]
+    for c in candidates:
+        if c and os.path.exists(c):
+            return str(Path(c).resolve())
+    return ""
+
+
 def handle_file_uploads(page: Page, resume_file_path: str = "") -> int:
-    """Finds input[type='file'] (Resume/CV uploads) and attaches the user's resume."""
-    if not resume_file_path or not os.path.exists(resume_file_path):
-        # Fallback to default base_resume.docx if path not provided
-        default_path = Path("c:/projects/job-agent/data/base_resume.docx")
-        if default_path.exists():
-            resume_file_path = str(default_path)
-        else:
-            return 0
-            
+    """
+    Mandatory Resume Upload: Finds all input[type='file'] (Resume/CV uploads)
+    or file upload buttons and attaches the candidate's resume.
+    """
+    valid_path = resolve_valid_resume_path(resume_file_path)
+    if not valid_path:
+        print("  [RESUME WARNING ⚠️] No valid resume file found locally!")
+        return 0
+
     uploaded = 0
     try:
+        # 1. Direct input[type='file'] elements
         file_inputs = page.locator("input[type='file']").all()
         for file_input in file_inputs:
             try:
-                # Set the input files
-                file_input.set_input_files(resume_file_path)
-                print(f"  [RESUME UPLOAD] Attached resume: {os.path.basename(resume_file_path)}")
+                file_input.set_input_files(valid_path)
+                print(f"  [MANDATORY RESUME UPLOAD 📄] Attached resume file: {os.path.basename(valid_path)}")
                 uploaded += 1
                 human_delay((1, 3))
-            except Exception as e:
-                # Try setting via page event handler if direct fails
+            except Exception:
                 continue
-    except Exception:
-        pass
+
+        # 2. Clickable "Upload Resume" or "Attach Resume" buttons that trigger file choosers
+        if uploaded == 0:
+            upload_btns = page.locator("button:has-text('Upload'), button:has-text('Attach'), a:has-text('Upload Resume'), label:has-text('Upload')").all()
+            for btn in upload_btns:
+                try:
+                    if btn.is_visible():
+                        with page.expect_file_chooser(timeout=3000) as fc_info:
+                            btn.click()
+                        file_chooser = fc_info.value
+                        file_chooser.set_files(valid_path)
+                        print(f"  [MANDATORY RESUME UPLOAD 📄] Attached resume via upload button: {os.path.basename(valid_path)}")
+                        uploaded += 1
+                        human_delay((1, 3))
+                        break
+                except Exception:
+                    continue
+
+        # 3. Radio selection for saved resumes (e.g. LinkedIn / Indeed saved resume)
+        saved_resume_radios = page.locator("input[type='radio'][value*='resume'], input[type='radio'][id*='resume']").all()
+        for radio in saved_resume_radios:
+            try:
+                if not radio.is_checked():
+                    radio.check()
+                    print("  [MANDATORY RESUME SELECTION 📄] Selected saved resume profile.")
+                    uploaded += 1
+            except Exception:
+                continue
+
+    except Exception as e:
+        print(f"  [RESUME UPLOAD ERROR] {e}")
+
     return uploaded
 
 
 def fill_form_fields(page: Page, resume_text: str, profile_answers: dict, resume_file_path: str = "", max_fields: int = 25):
     """
-    Scans the page for common form inputs (text, tel, email, select, radio, checkbox, file upload),
-    matches them against resume/profile answers, and fills them in automatically.
+    Scans page for form inputs (text, tel, email, select, radio, checkbox, file upload),
+    matches against resume/profile answers, enforces MANDATORY RESUME ATTACHMENT, and fills fields live.
     """
     filled_count = 0
     
-    # 0. Handle File Uploads (Resume / CV)
-    if resume_file_path or os.path.exists("c:/projects/job-agent/data/base_resume.docx"):
-        filled_count += handle_file_uploads(page, resume_file_path)
+    # 0. MANDATORY RESUME ATTACHMENT / SELECTION
+    filled_count += handle_file_uploads(page, resume_file_path)
 
     # 1. Handle Text, Number, Email, Tel, and Textarea inputs
     text_inputs = page.locator("input[type='text'], input[type='number'], input[type='tel'], input[type='email'], input:not([type]), textarea").all()
@@ -132,7 +167,6 @@ def fill_form_fields(page: Page, resume_text: str, profile_answers: dict, resume
         if filled_count >= max_fields:
             break
         try:
-            # Skip hidden, disabled, or already filled fields
             if not field.is_visible() or field.is_disabled():
                 continue
             val = field.input_value().strip()
@@ -145,20 +179,18 @@ def fill_form_fields(page: Page, resume_text: str, profile_answers: dict, resume
                 
             answer = answer_question(label, resume_text, profile_answers)
             if answer:
-                # Clean phone format if tel field
                 field_type = field.get_attribute("type") or ""
                 if field_type.lower() == "tel" or "phone" in label.lower() or "mobile" in label.lower():
-                    # extract digits
                     digits = re.sub(r'[^\d]', '', str(answer))
                     if len(digits) >= 10:
-                        answer = digits[-10:]  # 10-digit clean mobile number
+                        answer = digits[-10:]
                         
                 field.click()
                 human_delay((0.3, 0.8))
                 human_type(field, str(answer))
                 print(f"  [AUTO-FILL] Field '{label[:35]}' -> '{answer}'")
                 filled_count += 1
-                human_delay((0.8, 2.0))
+                human_delay((0.8, 1.8))
         except Exception:
             continue
 
@@ -197,7 +229,7 @@ def fill_form_fields(page: Page, resume_text: str, profile_answers: dict, resume
             
             group = page.locator(f"input[type='radio'][name='{name}']")
             if group.locator(":checked").count() > 0:
-                continue  # already checked
+                continue
                 
             question_text = ""
             container = radio.locator("xpath=ancestor::fieldset[1]")
@@ -239,7 +271,7 @@ def fill_form_fields(page: Page, resume_text: str, profile_answers: dict, resume
         except Exception:
             continue
 
-    # 4. Handle Checkboxes (agreeing to terms, work authorization)
+    # 4. Handle Checkboxes
     checkboxes = page.locator("input[type='checkbox']").all()
     for cb in checkboxes:
         try:
@@ -267,12 +299,17 @@ def fill_form_fields(page: Page, resume_text: str, profile_answers: dict, resume
 
 def detect_and_fix_validation_errors(page: Page, resume_text: str, profile_answers: dict) -> int:
     """
-    Analyzes the page for validation errors/warnings (missing required fields, red text,
-    aria-invalid attributes), resolves missing inputs, and returns the number of fixed issues.
+    Analyzes page for validation errors/warnings, re-enforces mandatory resume attachment,
+    resolves missing inputs, and returns fixed count.
     """
     fixed_count = 0
     try:
-        # Find invalid fields
+        # Mandatory resume re-check if error relates to missing CV/Resume
+        file_inputs = page.locator("input[type='file']").all()
+        for fi in file_inputs:
+            if fi.is_visible() and fi.evaluate("el => el.files.length === 0"):
+                fixed_count += handle_file_uploads(page)
+
         invalid_fields = page.locator("[aria-invalid='true'], input.error, input.is-invalid, select.error, select.is-invalid, textarea.error").all()
         for field in invalid_fields:
             if not field.is_visible() or field.is_disabled():
@@ -283,25 +320,22 @@ def detect_and_fix_validation_errors(page: Page, resume_text: str, profile_answe
             if tag_name == "select":
                 opts = field.locator("option").all()
                 if len(opts) > 1:
-                    field.select_option(index=1)  # select 1st valid non-empty option
+                    field.select_option(index=1)
                     print(f"  [FIX-ERROR] Re-selected dropdown option for '{label[:30]}'")
                     fixed_count += 1
             else:
-                # Re-fill with answer or default fallback
                 ans = answer_question(label, resume_text, profile_answers) or "Yes"
                 field.click()
                 field.fill(str(ans))
                 print(f"  [FIX-ERROR] Re-filled required field '{label[:30]}' -> '{ans}'")
                 fixed_count += 1
                 
-        # Find error message banners / red warning texts
         error_msgs = page.locator(".error-message, .invalid-feedback, .validation-error, .alert-danger, [role='alert']").all()
         for msg in error_msgs:
             if msg.is_visible():
                 txt = msg.inner_text().strip()
                 if txt:
                     print(f"  [WARNING DETECTED] Page form error: '{txt[:60]}'")
-                    # Try triggering form fill pass to ensure no un-filled required field remains
                     extra_fills = fill_form_fields(page, resume_text, profile_answers)
                     if extra_fills > 0:
                         fixed_count += extra_fills

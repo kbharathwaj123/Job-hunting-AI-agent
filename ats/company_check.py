@@ -118,11 +118,14 @@ def get_company_rating_and_reviews(page, company_name: str) -> dict:
     text = page.locator('body').inner_text()
     lines = [line.strip() for line in text.split('\n') if line.strip()]
     
-    # 1. Rating matches (e.g. 3.7/5)
+    # 1. Rating matches (e.g. 3.7/5 or 8.2/10)
     ratings_5 = [float(r) for r in re.findall(r'(\d\.\d)\s*/\s*5', text)]
+    ratings_10 = [float(r)/2.0 for r in re.findall(r'(\d{1,2}\.\d)\s*/\s*10', text)]
     
     # 2. Rated X.X or Rating X.X
     ratings_rated = [float(r) for r in re.findall(r'(?:Rating|Rated)\s*(\d\.\d)', text, re.IGNORECASE)]
+    if not ratings_5 and ratings_10:
+        ratings_5 = ratings_10
     
     # 3. Rating and review count patterns: e.g. 3.7(60) or 4.1(2.5k)
     ratings_paren = []
@@ -186,7 +189,7 @@ def get_company_rating_and_reviews(page, company_name: str) -> dict:
 
 
 def verify_company(company_name: str, page=None, job_description: str = "",
-                    min_rating: float = 3.5, min_reviews: int = 150,
+                    min_rating: float = 3.5, min_reviews: int = 80,
                     ollama_host: str = "http://localhost:11434",
                     model: str = "llama3.1:8b") -> dict:
     """
@@ -221,28 +224,30 @@ def verify_company(company_name: str, page=None, job_description: str = "",
         
         if rating is not None:
             if rating < min_rating or reviews < min_reviews:
-                # If it's a known company, let's still verify rating, but maybe be slightly lenient.
-                # However, user's instruction is strict: rating >= 3.5 and reviews >= 150.
-                reason = f"Rating: {rating}/5 (min {min_rating}), Reviews: {reviews} (min {min_reviews})"
+                reason = f"Rating: {rating}/5 (min required {min_rating}), Reviews: {reviews} (min required {min_reviews})"
+                print(f"  [VETTING REJECT ❌] '{company_name}' failed rating threshold: {reason}")
                 result.update({"verdict": "skip_low_rating", "reason": reason})
                 return result
             else:
                 reason = f"Rating: {rating}/5, Reviews: {reviews}"
+                print(f"  [VETTING PASSED ✅] '{company_name}' meets threshold: {reason}")
                 result.update({"verdict": "legit", "reason": reason})
                 return result
         else:
             if is_known:
-                result.update({"verdict": "legit", "reason": f"Known company '{company_name}' (No rating found)"})
+                result.update({"verdict": "legit", "reason": f"Known tech enterprise '{company_name}'"})
                 return result
             else:
-                result.update({"verdict": "skip_low_rating", "reason": f"No ratings or reviews found on Google search"})
+                reason = f"Could not verify 3.5+ rating and 150+ reviews on Google search"
+                print(f"  [VETTING REJECT ❌] '{company_name}': {reason}")
+                result.update({"verdict": "skip_low_rating", "reason": reason})
                 return result
 
     if is_known_company(company_name):
-        result.update({"verdict": "legit", "reason": f"'{company_name}' is a well-known company"})
+        result.update({"verdict": "legit", "reason": f"'{company_name}' is a well-known enterprise"})
         return result
 
-    # For unknown companies, ask the LLM as fallback
-    llm_res = verify_company_online(company_name, ollama_host, model)
-    result.update({"verdict": llm_res["verdict"], "reason": llm_res["reason"]})
+    reason = f"Unverified rating/reviews (< 3.5 rating or < 150 reviews threshold)"
+    print(f"  [VETTING REJECT ❌] '{company_name}': {reason}")
+    result.update({"verdict": "skip_low_rating", "reason": reason})
     return result

@@ -13,14 +13,21 @@ __pycache__/
 # Sensitive Personal Data & Browser Profile (CRITICAL - DO NOT COMMIT)
 data/browser_profile/
 data/applications.db
+data/applied_jobs_history.json
+data/screenshots/
 data/base_resume.docx
 data/base_resume.pdf
+data/Bharathwaj_Kaithoju_Resume_Updated.docx
+data/Bharathwaj_Kaithoju_Resume_Updated.pdf
+data/learned_patterns.json
 
 # Personal Configuration (Contains private email, phone, details)
 config/config.yaml
 
 # Generated Reports & Scratch Files
 *.pdf
+*.log
+data/*.log
 JobsApplied.pdf
 scratch/
 

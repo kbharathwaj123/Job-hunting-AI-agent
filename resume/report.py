@@ -6,124 +6,138 @@ from playwright.sync_api import sync_playwright
 
 def generate_pdf_report(applications: list, output_path: str = "C:/Users/HP/Downloads/JobsApplied.pdf"):
     """
-    Generates an exceptionally beautiful, professionally-styled PDF report
-    listing job applications and statuses.
+    Generates a 2-section A4 Landscape PDF report separating Domestic (India) and International applications.
+    Displays detailed status reasons (including 'Already Applied' for 3-month deduplication),
+    compact 11-12px typography, Applied Via platform badges, and proof screenshots.
     """
-    # Premium HTML template with CSS grid, cards, and custom fonts
     html_content = """
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title>Job Application Status Report</title>
+        <title>Job Application Executive Report</title>
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
             
+            @page {
+                size: A4 landscape;
+                margin: 8mm;
+            }
+
             body {
                 font-family: 'Plus Jakarta Sans', sans-serif;
                 background-color: #f8fafc;
                 color: #0f172a;
                 margin: 0;
-                padding: 30px;
+                padding: 10px;
                 -webkit-print-color-adjust: exact;
             }
             
             .container {
-                max-width: 1200px;
+                width: 100%;
                 margin: 0 auto;
                 background: #ffffff;
-                padding: 40px;
-                border-radius: 24px;
-                box-shadow: 0 10px 40px rgba(15, 23, 42, 0.04);
-                border: 1px solid #e2e8f0;
+                padding: 20px;
+                border-radius: 14px;
+                box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+                border: 1px solid #cbd5e1;
+                box-sizing: border-box;
             }
             
             .header-banner {
-                background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+                background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
                 color: #ffffff;
-                padding: 35px 40px;
-                border-radius: 20px;
-                margin-bottom: 35px;
+                padding: 18px 22px;
+                border-radius: 10px;
+                margin-bottom: 16px;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                box-shadow: 0 8px 30px rgba(79, 70, 229, 0.15);
             }
             
             .header-banner h1 {
                 font-family: 'Outfit', sans-serif;
-                font-size: 32px;
+                font-size: 22px;
                 font-weight: 800;
                 margin: 0;
-                letter-spacing: -0.03em;
+                letter-spacing: -0.02em;
             }
             
             .header-banner p {
-                color: #cbd5e1;
-                margin: 6px 0 0 0;
-                font-size: 15px;
+                color: #94a3b8;
+                margin: 3px 0 0 0;
+                font-size: 12px;
                 font-weight: 500;
             }
             
             .date-badge {
-                background: rgba(255, 255, 255, 0.15);
-                backdrop-filter: blur(8px);
-                padding: 10px 20px;
+                background: rgba(255, 255, 255, 0.12);
+                padding: 6px 14px;
                 border-radius: 99px;
                 font-family: 'Outfit', sans-serif;
                 font-weight: 600;
-                font-size: 14px;
+                font-size: 12px;
                 border: 1px solid rgba(255, 255, 255, 0.2);
             }
             
             .stats-grid {
                 display: grid;
                 grid-template-columns: repeat(4, 1fr);
-                gap: 20px;
-                margin-bottom: 35px;
+                gap: 12px;
+                margin-bottom: 18px;
             }
             
             .stat-card {
                 background: #ffffff;
                 border: 1px solid #e2e8f0;
-                border-radius: 16px;
-                padding: 20px;
-                text-align: left;
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01);
-                transition: transform 0.2s;
+                border-radius: 10px;
+                padding: 12px 14px;
             }
             
             .stat-card .label {
-                font-size: 12px;
-                font-weight: 600;
+                font-size: 10.5px;
+                font-weight: 700;
                 color: #64748b;
                 text-transform: uppercase;
-                letter-spacing: 0.07em;
-                margin-bottom: 6px;
+                letter-spacing: 0.05em;
+                margin-bottom: 3px;
             }
             
             .stat-card .value {
                 font-family: 'Outfit', sans-serif;
-                font-size: 30px;
+                font-size: 22px;
                 font-weight: 700;
                 color: #1e293b;
             }
             
-            .stat-card.applied-card {
-                border-left: 5px solid #10b981;
+            .stat-card.applied-card { border-left: 4px solid #10b981; }
+            .stat-card.staged-card { border-left: 4px solid #f59e0b; }
+            .stat-card.skipped-card { border-left: 4px solid #ef4444; }
+            .stat-card.already-card { border-left: 4px solid #8b5cf6; }
+
+            .section-header {
+                font-family: 'Outfit', sans-serif;
+                font-size: 15px;
+                font-weight: 700;
+                color: #1e293b;
+                padding: 8px 12px;
+                background-color: #f1f5f9;
+                border-left: 5px solid #2563eb;
+                border-radius: 6px;
+                margin-top: 18px;
+                margin-bottom: 10px;
             }
-            .stat-card.skipped-card {
-                border-left: 5px solid #ef4444;
-            }
-            .stat-card.staged-card {
-                border-left: 5px solid #f59e0b;
+
+            .section-header.international-header {
+                border-left-color: #7c3aed;
+                background-color: #f5f3ff;
             }
             
             .table-container {
-                border: 1px solid #e2e8f0;
-                border-radius: 16px;
+                border: 1px solid #cbd5e1;
+                border-radius: 8px;
                 overflow: hidden;
-                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+                margin-bottom: 16px;
             }
             
             table {
@@ -131,88 +145,99 @@ def generate_pdf_report(applications: list, output_path: str = "C:/Users/HP/Down
                 border-collapse: collapse;
                 text-align: left;
                 background: #ffffff;
+                table-layout: fixed;
             }
             
             th {
                 background-color: #f8fafc;
-                color: #475569;
+                color: #334155;
                 font-family: 'Outfit', sans-serif;
-                font-weight: 600;
-                font-size: 12px;
+                font-weight: 700;
+                font-size: 11px;
                 text-transform: uppercase;
-                letter-spacing: 0.08em;
-                padding: 18px 20px;
-                border-bottom: 2px solid #e2e8f0;
+                letter-spacing: 0.04em;
+                padding: 8px 10px;
+                border-bottom: 2px solid #cbd5e1;
             }
             
             td {
-                padding: 18px 20px;
-                border-bottom: 1px solid #f1f5f9;
-                font-size: 13.5px;
+                padding: 7px 9px;
+                border-bottom: 1px solid #e2e8f0;
+                font-size: 11px;
                 color: #334155;
                 vertical-align: middle;
+                word-wrap: break-word;
+                line-height: 1.3;
             }
             
-            tr:last-child td {
-                border-bottom: none;
-            }
-            
-            tr:nth-child(even) {
-                background-color: #f8fafc;
-            }
+            tr:nth-child(even) { background-color: #f8fafc; }
             
             .badge {
                 display: inline-block;
-                padding: 6px 12px;
-                border-radius: 99px;
-                font-size: 11px;
+                padding: 3px 7px;
+                border-radius: 5px;
+                font-size: 10px;
                 font-weight: 700;
                 text-transform: uppercase;
-                letter-spacing: 0.05em;
+                white-space: nowrap;
             }
             
-            .badge-applied {
-                background-color: #dcfce7;
-                color: #15803d;
+            .badge-applied { background-color: #dcfce7; color: #15803d; }
+            .badge-staged { background-color: #fef3c7; color: #b91c1c; }
+            .badge-skipped { background-color: #fee2e2; color: #b91c1c; }
+            .badge-already { background-color: #f3e8ff; color: #6b21a8; border: 1px solid #d8b4fe; }
+            .badge-error { background-color: #f1f5f9; color: #475569; }
+            
+            .reason-text {
+                font-size: 9.5px;
+                color: #64748b;
+                display: block;
+                margin-top: 2px;
+                font-weight: 500;
+            }
+
+            .source-tag {
+                display: inline-block;
+                padding: 3px 6px;
+                border-radius: 4px;
+                font-size: 10px;
+                font-weight: 700;
+                white-space: nowrap;
             }
             
-            .badge-staged {
-                background-color: #fef3c7;
-                color: #d97706;
-            }
-            
-            .badge-skipped {
-                background-color: #fee2e2;
-                color: #b91c1c;
-            }
-            
-            .badge-error {
-                background-color: #f1f5f9;
-                color: #475569;
-            }
-            
+            .source-company { background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+            .source-linkedin { background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+            .source-naukri { background-color: #fff7ed; color: #c2410c; border: 1px solid #ffedd5; }
+            .source-indeed { background-color: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff; }
+
             .score-tag {
                 font-family: 'Outfit', sans-serif;
                 font-weight: 700;
-                font-size: 14px;
+                font-size: 11.5px;
             }
-            
-            .score-high {
-                color: #16a34a;
-            }
-            
-            .score-med {
-                color: #d97706;
-            }
-            
-            .score-low {
-                color: #dc2626;
-            }
+            .score-high { color: #16a34a; }
+            .score-med { color: #d97706; }
+            .score-low { color: #dc2626; }
             
             .email-text {
                 font-family: monospace;
-                color: #64748b;
-                font-size: 12px;
+                color: #475569;
+                font-size: 10px;
+                word-break: break-all;
+            }
+
+            .proof-img {
+                width: 80px;
+                height: 46px;
+                object-fit: cover;
+                border-radius: 5px;
+                border: 1px solid #cbd5e1;
+            }
+            
+            .no-proof {
+                font-size: 9.5px;
+                color: #94a3b8;
+                font-style: italic;
             }
         </style>
     </head>
@@ -220,8 +245,8 @@ def generate_pdf_report(applications: list, output_path: str = "C:/Users/HP/Down
         <div class="container">
             <div class="header-banner">
                 <div>
-                    <h1>JobsApplied Report</h1>
-                    <p>Automated Job Search & Application Log</p>
+                    <h1>JobsApplied Executive Report</h1>
+                    <p>3-Month Rolling Window & Multi-Channel Application Log</p>
                 </div>
                 <div class="date-badge">__DATE__</div>
             </div>
@@ -235,31 +260,58 @@ def generate_pdf_report(applications: list, output_path: str = "C:/Users/HP/Down
                     <div class="label">Applied</div>
                     <div class="value">__APPLIED_COUNT__</div>
                 </div>
-                <div class="stat-card staged-card">
-                    <div class="label">Review Required / Staged</div>
-                    <div class="value">__STAGED_COUNT__</div>
+                <div class="stat-card already-card">
+                    <div class="label">Already Applied (3-Mo)</div>
+                    <div class="value">__ALREADY_COUNT__</div>
                 </div>
                 <div class="stat-card skipped-card">
-                    <div class="label">Skipped (Low Rating)</div>
+                    <div class="label">Skipped / Low Rating</div>
                     <div class="value">__SKIPPED_COUNT__</div>
                 </div>
             </div>
             
+            <!-- SECTION 1: DOMESTIC APPLICATIONS -->
+            <div class="section-header">🇮🇳 Section 1: Domestic Applications (India - Hyderabad, Pune, Bangalore, Kochi)</div>
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th>Company Name</th>
-                            <th>Company Email</th>
-                            <th>Offering Salary</th>
-                            <th>WFH/Hybrid</th>
-                            <th>ATS Match %</th>
-                            <th>Location</th>
-                            <th>Status</th>
+                            <th style="width: 18%;">Company & Title</th>
+                            <th style="width: 15%;">Email</th>
+                            <th style="width: 10%;">Salary</th>
+                            <th style="width: 10%;">Work Type</th>
+                            <th style="width: 8%;">ATS Match</th>
+                            <th style="width: 11%;">Location</th>
+                            <th style="width: 9%;">Applied Via</th>
+                            <th style="width: 11%;">Status & Reason</th>
+                            <th style="width: 8%;">Proof</th>
                         </tr>
                     </thead>
                     <tbody>
-                        __TABLE_ROWS__
+                        __DOMESTIC_ROWS__
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- SECTION 2: INTERNATIONAL APPLICATIONS -->
+            <div class="section-header international-header">🌐 Section 2: International Applications (US, UK, France, Germany, Japan, Dubai, China)</div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 18%;">Company & Title</th>
+                            <th style="width: 15%;">Email</th>
+                            <th style="width: 10%;">Salary</th>
+                            <th style="width: 10%;">Work Type</th>
+                            <th style="width: 8%;">ATS Match</th>
+                            <th style="width: 11%;">Location</th>
+                            <th style="width: 9%;">Applied Via</th>
+                            <th style="width: 11%;">Status & Reason</th>
+                            <th style="width: 8%;">Proof</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        __INTL_ROWS__
                     </tbody>
                 </table>
             </div>
@@ -268,93 +320,138 @@ def generate_pdf_report(applications: list, output_path: str = "C:/Users/HP/Down
     </html>
     """
     
-    # Calculate counts
-    total_jobs = len(applications)
-    applied_count = sum(1 for app in applications if app.get('status') == 'applied' or app.get('status') == 'submitted')
-    staged_count = sum(1 for app in applications if app.get('status') == 'staged')
-    skipped_count = sum(1 for app in applications if app.get('status') == 'skipped_low_rating' or app.get('status') == 'suspicious')
+    # Categorize applications into Domestic vs International
+    intl_keywords = ["united states", "us", "uk", "london", "united kingdom", "paris", "france", "germany", "berlin", "munich", "japan", "tokyo", "dubai", "uae", "china", "shanghai", "beijing"]
     
-    # Render table rows
-    rows_html = []
+    domestic_apps = []
+    intl_apps = []
+    
     for app in applications:
-        # Style status badge
-        status = app.get('status', 'unknown').lower()
-        if status in ('applied', 'submitted'):
-            badge_class = 'badge-applied'
-            status_text = 'Applied'
-        elif status == 'staged':
-            badge_class = 'badge-staged'
-            status_text = 'Review Req'
-        elif status in ('skipped_low_rating', 'suspicious'):
-            badge_class = 'badge-skipped'
-            status_text = 'Low Rating'
-        elif status == 'skipped':
-            badge_class = 'badge-error'
-            status_text = 'Skipped'
+        loc_str = str(app.get("location", "")).lower()
+        title_str = str(app.get("title", "")).lower()
+        if any(kw in loc_str or kw in title_str for kw in intl_keywords):
+            intl_apps.append(app)
         else:
-            badge_class = 'badge-error'
-            status_text = status.upper()
+            domestic_apps.append(app)
+
+    total_jobs = len(applications)
+    applied_count = sum(1 for app in applications if app.get('status') in ('applied', 'submitted'))
+    already_count = sum(1 for app in applications if app.get('status') == 'already_applied')
+    skipped_count = sum(1 for app in applications if app.get('status') in ('skipped_low_rating', 'suspicious', 'skipped', 'low_ats_score'))
+
+    def build_rows(app_list):
+        if not app_list:
+            return '<tr><td colspan="9" style="text-align:center; color:#94a3b8; font-style:italic; padding:12px;">No applications recorded in this section yet.</td></tr>'
             
-        # Style ATS score
-        score = app.get('ats_score', 0)
-        if score >= 80:
-            score_class = 'score-high'
-        elif score >= 60:
-            score_class = 'score-med'
-        else:
-            score_class = 'score-low'
+        rows_html = []
+        for app in app_list:
+            status = app.get('status', 'unknown').lower()
+            reason = app.get('status_reason') or app.get('reason') or ''
             
-        salary = app.get('salary') or 'Not Specified'
-        wfh = app.get('wfh') or 'Remote/Hybrid'
-        location = app.get('location') or 'Not Specified'
-        email = app.get('company_email') or 'Not Listed'
-        
-        row = f"""
-        <tr>
-            <td><strong>{app.get('company')}</strong><br><span style="font-size:11px;color:#64748b;font-weight:500;">{app.get('title')}</span></td>
-            <td class="email-text">{email}</td>
-            <td>{salary}</td>
-            <td>{wfh}</td>
-            <td class="score-tag {score_class}">{score}%</td>
-            <td>{location}</td>
-            <td><span class="badge {badge_class}">{status_text}</span></td>
-        </tr>
-        """
-        rows_html.append(row)
-        
+            if status in ('applied', 'submitted'):
+                badge_class = 'badge-applied'
+                status_text = 'Applied'
+            elif status == 'already_applied':
+                badge_class = 'badge-already'
+                status_text = 'Already Applied'
+                reason = 'Applied within last 3 months'
+            elif status == 'staged':
+                badge_class = 'badge-staged'
+                status_text = 'Review Req'
+            elif status == 'skipped_low_rating':
+                badge_class = 'badge-skipped'
+                status_text = 'Low Rating'
+            elif status == 'low_ats_score':
+                badge_class = 'badge-skipped'
+                status_text = 'Low ATS Match'
+            elif status == 'suspicious':
+                badge_class = 'badge-skipped'
+                status_text = 'Suspicious'
+            else:
+                badge_class = 'badge-error'
+                status_text = status.upper()
+                
+            reason_markup = f'<span class="reason-text">{reason[:45]}</span>' if reason else ''
+
+            source_raw = str(app.get('source', 'company_portal')).lower()
+            if 'linkedin' in source_raw:
+                source_class = 'source-linkedin'
+                source_label = 'LinkedIn'
+            elif 'naukri' in source_raw:
+                source_class = 'source-naukri'
+                source_label = 'Naukri'
+            elif 'indeed' in source_raw:
+                source_class = 'source-indeed'
+                source_label = 'Indeed'
+            else:
+                source_class = 'source-company'
+                source_label = 'Company Portal'
+                
+            score = app.get('ats_score', 0)
+            score_class = 'score-high' if score >= 80 else ('score-med' if score >= 55 else 'score-low')
+                
+            salary = app.get('salary') or 'Not Specified'
+            wfh = app.get('wfh') or 'On-site / Hybrid / Remote'
+            location = app.get('location') or 'Not Specified'
+            email = app.get('company_email') or 'Not Listed'
+            
+            shot_path = app.get('screenshot') or app.get('screenshot_path') or ''
+            if shot_path and os.path.exists(shot_path):
+                img_uri = Path(shot_path).as_uri()
+                proof_html = f'<img src="{img_uri}" class="proof-img" alt="Proof"/>'
+            else:
+                proof_html = '<span class="no-proof">Log Verified</span>'
+            
+            row = f"""
+            <tr>
+                <td><strong>{app.get('company', 'Company')}</strong><br><span style="font-size:10px;color:#64748b;font-weight:500;">{app.get('title', 'Role')}</span></td>
+                <td class="email-text">{email}</td>
+                <td>{salary}</td>
+                <td>{wfh}</td>
+                <td class="score-tag {score_class}">{score}%</td>
+                <td>{location}</td>
+                <td><span class="source-tag {source_class}">{source_label}</span></td>
+                <td><span class="badge {badge_class}">{status_text}</span>{reason_markup}</td>
+                <td>{proof_html}</td>
+            </tr>
+            """
+            rows_html.append(row)
+        return "\n".join(rows_html)
+
+    domestic_rows_html = build_rows(domestic_apps)
+    intl_rows_html = build_rows(intl_apps)
+
     today_str = datetime.date.today().strftime("%B %d, %Y")
     
     final_html = html_content.replace('__TOTAL_JOBS__', str(total_jobs))\
                              .replace('__APPLIED_COUNT__', str(applied_count))\
-                             .replace('__STAGED_COUNT__', str(staged_count))\
+                             .replace('__ALREADY_COUNT__', str(already_count))\
                              .replace('__SKIPPED_COUNT__', str(skipped_count))\
                              .replace('__DATE__', today_str)\
-                             .replace('__TABLE_ROWS__', "\n".join(rows_html))
+                             .replace('__DOMESTIC_ROWS__', domestic_rows_html)\
+                             .replace('__INTL_ROWS__', intl_rows_html)
     
-    # Write to a temporary file
     temp_dir = Path(tempfile.gettempdir())
-    temp_html_path = temp_dir / "report.html"
+    temp_html_path = temp_dir / "report_2sections.html"
     temp_html_path.write_text(final_html, encoding='utf-8')
     
-    # Render to PDF using Playwright
-    print(f"Generating PDF report to: {output_path}")
+    print(f"Generating Executive 2-Section PDF report (A4 Landscape) to: {output_path}")
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True)
         page = browser.new_page()
         page.goto(temp_html_path.as_uri())
-        page.wait_for_timeout(1000) # wait for fonts/styles
+        page.wait_for_timeout(1000)
         
-        # Output PDF
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         page.pdf(
             path=output_path,
             format="A4",
-            margin={"top": "15mm", "bottom": "15mm", "left": "15mm", "right": "15mm"},
+            landscape=True,
+            margin={"top": "8mm", "bottom": "8mm", "left": "8mm", "right": "8mm"},
             print_background=True
         )
         browser.close()
         
-    # Clean up temp file
     try:
         os.remove(temp_html_path)
     except OSError:
