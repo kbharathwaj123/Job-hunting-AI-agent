@@ -226,8 +226,15 @@ def main():
 
         # Check Excluded Companies (Current / Previous Employer Protection)
         excluded_companies = [c.strip().lower() for c in cfg["job_criteria"].get("exclude_companies", []) if c.strip()]
+        curr_comp = cfg.get("profile_answers", {}).get("current_company", "").strip().lower()
+        if curr_comp and curr_comp not in excluded_companies:
+            excluded_companies.append(curr_comp)
+
         job_company_clean = job["company"].strip().lower()
-        if any(exc in job_company_clean or job_company_clean in exc for exc in excluded_companies):
+        # Filter out generic template placeholders
+        active_exclusions = [exc for exc in excluded_companies if exc and exc not in ("your current company name", "previous employer name", "example company")]
+
+        if any(exc in job_company_clean or job_company_clean in exc for exc in active_exclusions):
             print(f"  [SKIP - CURRENT EMPLOYER 🛑] Skipping '{job['company']}' as it matches your current employer.")
             record(job["source"], job["title"], job["company"], job["url"], 0, "skipped_current_employer")
             processed_jobs.append({
