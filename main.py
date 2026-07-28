@@ -224,6 +224,20 @@ def main():
             })
             continue
 
+        # Check Excluded Companies (Current / Previous Employer Protection)
+        excluded_companies = [c.strip().lower() for c in cfg["job_criteria"].get("exclude_companies", []) if c.strip()]
+        job_company_clean = job["company"].strip().lower()
+        if any(exc in job_company_clean or job_company_clean in exc for exc in excluded_companies):
+            print(f"  [SKIP - CURRENT EMPLOYER 🛑] Skipping '{job['company']}' as it matches your current employer.")
+            record(job["source"], job["title"], job["company"], job["url"], 0, "skipped_current_employer")
+            processed_jobs.append({
+                "company": job["company"], "title": job["title"], "source": job["source"],
+                "ats_score": 0, "status": "skipped", "status_reason": f"Current employer ({job['company']}) - excluded",
+                "location": job.get("location", "Not Specified"), "wfh": "Any", "salary": "Not Specified",
+                "company_email": "Not Listed"
+            })
+            continue
+
         if any(bad.lower() in job["title"].lower() for bad in cfg["job_criteria"]["exclude_keywords"]):
             record(job["source"], job["title"], job["company"], job["url"], 0, "skipped")
             processed_jobs.append({
