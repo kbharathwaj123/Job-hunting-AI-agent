@@ -397,8 +397,13 @@ def generate_pdf_report(applications: list, output_path: str = "C:/Users/HP/Down
             
             shot_path = app.get('screenshot') or app.get('screenshot_path') or ''
             if shot_path and os.path.exists(shot_path):
-                img_uri = Path(shot_path).as_uri()
-                proof_html = f'<img src="{img_uri}" class="proof-img" alt="Proof"/>'
+                try:
+                    import base64
+                    with open(shot_path, "rb") as img_f:
+                        b64_data = base64.b64encode(img_f.read()).decode('utf-8')
+                    proof_html = f'<img src="data:image/png;base64,{b64_data}" class="proof-img" alt="Proof"/>'
+                except Exception:
+                    proof_html = '<span class="no-proof">Proof Saved</span>'
             else:
                 proof_html = '<span class="no-proof">Log Verified</span>'
             
