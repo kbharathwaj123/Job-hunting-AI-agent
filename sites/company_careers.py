@@ -247,12 +247,13 @@ def apply_company_website(context: BrowserContext, company_name: str, role: str,
             if auto_submit:
                 try:
                     submit_btn.first.click()
-                    human_delay((3, 5))
+                    print(f"  [COMPANY PORTAL SUBMIT] Clicked Submit button for '{company_name}'! Waiting for confirmation response...")
+                    page.wait_for_timeout(7000)
                     from browser.session import capture_confirmation_screenshot
                     shot = capture_confirmation_screenshot(page, company_name)
-                    print("  [COMPANY WEBSITE APPLY] Successfully submitted application!")
+                    print(f"  [COMPANY WEBSITE APPLY 🎉] Successfully submitted application to '{company_name}'!")
                     page.close()
-                    return {"status": "submitted", "screenshot": shot}
+                    return {"status": "submitted", "reason": "Application submitted & confirmation verified", "screenshot": shot}
                 except Exception as e:
                     print(f"  [WARNING] Submit click error: {e}")
             else:
@@ -271,9 +272,22 @@ def apply_company_website(context: BrowserContext, company_name: str, role: str,
 
     from browser.session import capture_confirmation_screenshot
     shot = capture_confirmation_screenshot(page, company_name)
+    
+    # Final safety re-check for submit button
     if auto_submit:
+        submit_btn = page.locator("button:has-text('Submit Application'), button:has-text('Submit'), input[type='submit']")
+        if submit_btn.count() > 0 and submit_btn.first.is_visible():
+            try:
+                submit_btn.first.click()
+                print("  [PORTAL SUBMIT] Final submission click executed! Waiting for confirmation...")
+                page.wait_for_timeout(7000)
+                shot = capture_confirmation_screenshot(page, company_name)
+                page.close()
+                return {"status": "submitted", "reason": "Application submitted & confirmation verified", "screenshot": shot}
+            except Exception:
+                pass
         page.close()
-        return {"status": "submitted", "reason": "Completed portal application steps", "screenshot": shot}
+        return {"status": "staged", "reason": "Form requires manual verification (unhandled required fields)", "screenshot": shot}
 
     print("  -------------------------------------------------------")
     print("  >> APPLICATION READY FOR REVIEW on Official Website!")

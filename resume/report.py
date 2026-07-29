@@ -7,8 +7,8 @@ from playwright.sync_api import sync_playwright
 def generate_pdf_report(applications: list, output_path: str = "C:/Users/HP/Downloads/JobsApplied.pdf"):
     """
     Generates a 2-section A4 Landscape PDF report separating Domestic (India) and International applications.
-    Displays detailed status reasons (including 'Already Applied' for 3-month deduplication),
-    compact 11-12px typography, Applied Via platform badges, and proof screenshots.
+    Displays detailed status reasons, compact 11-12px typography, Applied Via platform badges,
+    and clickable Base64 proof screenshots that open inline in full resolution (without downloading).
     """
     html_content = """
     <!DOCTYPE html>
@@ -227,17 +227,54 @@ def generate_pdf_report(applications: list, output_path: str = "C:/Users/HP/Down
             }
 
             .proof-img {
-                width: 80px;
-                height: 46px;
+                width: 85px;
+                height: 50px;
                 object-fit: cover;
-                border-radius: 5px;
+                border-radius: 6px;
                 border: 1px solid #cbd5e1;
+                cursor: pointer;
+                transition: transform 0.15s ease, box-shadow 0.15s ease;
+            }
+            .proof-img:hover {
+                transform: scale(1.05);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             }
             
             .no-proof {
                 font-size: 9.5px;
                 color: #94a3b8;
                 font-style: italic;
+            }
+
+            /* LIGHTBOX MODAL FOR FULL SCREEN VIEW WITHOUT DOWNLOADING */
+            .lightbox-modal {
+                display: none;
+                position: fixed;
+                z-index: 9999;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(15, 23, 42, 0.85);
+                backdrop-filter: blur(4px);
+                justify-content: center;
+                align-items: center;
+            }
+            .lightbox-content {
+                max-width: 90%;
+                max-height: 90%;
+                border-radius: 10px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+                border: 2px solid #ffffff;
+            }
+            .close-btn {
+                position: absolute;
+                top: 20px;
+                right: 30px;
+                color: #ffffff;
+                font-size: 32px;
+                font-weight: bold;
+                cursor: pointer;
             }
         </style>
     </head>
@@ -316,11 +353,26 @@ def generate_pdf_report(applications: list, output_path: str = "C:/Users/HP/Down
                 </table>
             </div>
         </div>
+
+        <!-- LIGHTBOX OVERLAY DIALOG -->
+        <div id="imageModal" class="lightbox-modal" onclick="closeModal()">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <img class="lightbox-content" id="imgFull">
+        </div>
+
+        <script>
+            function openModal(src) {
+                document.getElementById("imgFull").src = src;
+                document.getElementById("imageModal").style.display = "flex";
+            }
+            function closeModal() {
+                document.getElementById("imageModal").style.display = "none";
+            }
+        </script>
     </body>
     </html>
     """
     
-    # Categorize applications into Domestic vs International
     intl_keywords = ["united states", "us", "uk", "london", "united kingdom", "paris", "france", "germany", "berlin", "munich", "japan", "tokyo", "dubai", "uae", "china", "shanghai", "beijing"]
     
     domestic_apps = []
@@ -401,7 +453,7 @@ def generate_pdf_report(applications: list, output_path: str = "C:/Users/HP/Down
                     import base64
                     with open(shot_path, "rb") as img_f:
                         b64_data = base64.b64encode(img_f.read()).decode('utf-8')
-                    proof_html = f'<img src="data:image/png;base64,{b64_data}" class="proof-img" alt="Proof"/>'
+                    proof_html = f'<img src="data:image/png;base64,{b64_data}" class="proof-img" onclick="openModal(this.src)" title="Click to view full screenshot (No Download)" alt="Proof"/>'
                 except Exception:
                     proof_html = '<span class="no-proof">Proof Saved</span>'
             else:
