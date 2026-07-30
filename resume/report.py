@@ -4,6 +4,32 @@ import datetime
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
+
+def resolve_screenshot_b64(shot_path: str) -> str:
+    """Resolves relative or absolute screenshot file paths to Base64 Data URI."""
+    if not shot_path:
+        return ""
+        
+    candidates = [
+        shot_path,
+        os.path.abspath(shot_path),
+        str(Path(__file__).parent.parent / shot_path),
+        str(Path(__file__).parent.parent / "data" / "screenshots" / os.path.basename(shot_path))
+    ]
+    
+    for cand in candidates:
+        if cand and os.path.exists(cand) and os.path.getsize(cand) > 100:
+            try:
+                import base64
+                with open(cand, "rb") as img_f:
+                    b64 = base64.b64encode(img_f.read()).decode('utf-8')
+                    if b64:
+                        return f"data:image/png;base64,{b64}"
+            except Exception:
+                pass
+    return ""
+
+
 def generate_pdf_report(applications: list, output_path: str = "C:/Users/HP/Downloads/JobsApplied.pdf"):
     """
     Generates a 2-section A4 Landscape PDF report separating Domestic (India) and International applications.
@@ -448,14 +474,9 @@ def generate_pdf_report(applications: list, output_path: str = "C:/Users/HP/Down
             email = app.get('company_email') or 'Not Listed'
             
             shot_path = app.get('screenshot') or app.get('screenshot_path') or ''
-            if shot_path and os.path.exists(shot_path):
-                try:
-                    import base64
-                    with open(shot_path, "rb") as img_f:
-                        b64_data = base64.b64encode(img_f.read()).decode('utf-8')
-                    proof_html = f'<img src="data:image/png;base64,{b64_data}" class="proof-img" onclick="openModal(this.src)" title="Click to view full screenshot (No Download)" alt="Proof"/>'
-                except Exception:
-                    proof_html = '<span class="no-proof">Proof Saved</span>'
+            b64_src = resolve_screenshot_b64(shot_path)
+            if b64_src:
+                proof_html = f'<img src="{b64_src}" class="proof-img" onclick="openModal(this.src)" title="Click to view full screenshot (No Download)" alt="Proof"/>'
             else:
                 proof_html = '<span class="no-proof">Log Verified</span>'
             
