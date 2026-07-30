@@ -356,7 +356,8 @@ def main():
                 else:
                     result = {"status": "staged", "reason": f"{job['source']} apply flow not yet built"}
 
-            record(job["source"], job["title"], job["company"], job["url"], score, result["status"])
+            shot_path = result.get("screenshot", "")
+            record(job["source"], job["title"], job["company"], job["url"], score, result["status"], screenshot=shot_path)
             print(f"  [{result['status'].upper()}] {job['title']} @ {job['company']} (score={score}%)")
             
             # If successfully applied or submitted, add to 3-month history file
@@ -368,7 +369,7 @@ def main():
                 "ats_score": score, "status": result["status"], "status_reason": result.get("reason", "Successfully Processed"),
                 "location": job.get("location", "Hyderabad / Pune / Global"),
                 "wfh": "On-site / Hybrid / Remote", "salary": "Not Specified",
-                "company_email": company_email, "screenshot": result.get("screenshot", "")
+                "company_email": company_email, "screenshot": shot_path
             })
         except Exception as e:
             print(f"  [ERROR] Failed to process {job['title']}: {e}")

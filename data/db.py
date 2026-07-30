@@ -15,11 +15,18 @@ def init_db():
             company TEXT,
             job_url TEXT UNIQUE,
             ats_score REAL,
-            status TEXT,          -- found | tailored | staged | submitted | skipped
+            status TEXT,          -- found | tailored | staged | submitted | skipped | already_applied
             resume_path TEXT,
-            applied_at TEXT
+            applied_at TEXT,
+            screenshot TEXT       -- Filepath to proof screenshot
         )
     """)
+    # Add screenshot column if upgrading existing database
+    try:
+        conn.execute("ALTER TABLE applications ADD COLUMN screenshot TEXT")
+    except Exception:
+        pass
+        
     conn.commit()
     conn.close()
 
@@ -34,14 +41,14 @@ def already_seen(job_url: str) -> bool:
     return row is not None
 
 
-def record(source, job_title, company, job_url, ats_score, status, resume_path=""):
+def record(source, job_title, company, job_url, ats_score, status, resume_path="", screenshot=""):
     conn = sqlite3.connect(DB_PATH)
     conn.execute(
         """INSERT OR REPLACE INTO applications
-           (source, job_title, company, job_url, ats_score, status, resume_path, applied_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+           (source, job_title, company, job_url, ats_score, status, resume_path, applied_at, screenshot)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (source, job_title, company, job_url, ats_score, status, resume_path,
-         datetime.now().isoformat()),
+         datetime.now().isoformat(), screenshot),
     )
     conn.commit()
     conn.close()
@@ -49,10 +56,10 @@ def record(source, job_title, company, job_url, ats_score, status, resume_path="
 
 def today_count() -> int:
     conn = sqlite3.connect(DB_PATH)
-    today = datetime.now().date().isoformat()
-    row = conn.execute(
-        "SELECT COUNT(*) FROM applications WHERE status='submitted' AND applied_at LIKE ?",
-        (f"{today}%",),
-    ).fetchone()
+    today_str = datetime.now().date().isoformat()
+    count = conn.execute(
+        "SELECT COUNT(*) FROM applications WHERE applied_at LIKE ? AND status IN ('submitted', 'staged', 'applied')",
+        (f"{today_str}%",)
+    ).fetchone()[0]
     conn.close()
-    return row[0]
+    return count

@@ -488,15 +488,21 @@ def generate_pdf_report(applications: list, output_path: str = "C:/Users/HP/Down
                              .replace('__DOMESTIC_ROWS__', domestic_rows_html)\
                              .replace('__INTL_ROWS__', intl_rows_html)
     
-    temp_dir = Path(tempfile.gettempdir())
-    temp_html_path = temp_dir / "report_2sections.html"
-    temp_html_path.write_text(final_html, encoding='utf-8')
-    
+    # Save interactive HTML report to Downloads folder alongside PDF
+    html_output_path = output_path.replace(".pdf", ".html")
+    try:
+        os.makedirs(os.path.dirname(html_output_path), exist_ok=True)
+        with open(html_output_path, "w", encoding="utf-8") as hf:
+            hf.write(final_html)
+        print(f"Interactive Web Report saved to: {html_output_path}")
+    except Exception as e:
+        print(f"[WARNING] Could not save HTML report: {e}")
+
     print(f"Generating Executive 2-Section PDF report (A4 Landscape) to: {output_path}")
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True)
         page = browser.new_page()
-        page.goto(temp_html_path.as_uri())
+        page.goto(Path(html_output_path).as_uri())
         page.wait_for_timeout(1000)
         
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -508,9 +514,5 @@ def generate_pdf_report(applications: list, output_path: str = "C:/Users/HP/Down
             print_background=True
         )
         browser.close()
-        
-    try:
-        os.remove(temp_html_path)
-    except OSError:
-        pass
-    print("PDF report generated successfully.")
+
+    print("PDF and Interactive HTML reports generated successfully.")
