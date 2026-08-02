@@ -42,7 +42,17 @@ def load_config():
 
 def load_base_resume_text(path: str) -> str:
     doc = Document(path)
-    return "\n".join(p.text for p in doc.paragraphs)
+    lines = []
+    for p in doc.paragraphs:
+        if p.text.strip():
+            lines.append(p.text.strip())
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    if p.text.strip():
+                        lines.append(p.text.strip())
+    return "\n".join(lines)
 
 
 def ensure_ollama_running(host: str = "http://localhost:11434"):

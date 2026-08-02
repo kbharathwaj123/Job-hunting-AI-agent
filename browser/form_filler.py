@@ -83,6 +83,8 @@ def resolve_valid_resume_path(resume_file_path: str = "") -> str:
     """Resolves a valid existing resume file path from config or defaults."""
     candidates = [
         resume_file_path,
+        "c:/projects/job-agent/data/Bharathwaj_Kaithoju_v2.pdf",
+        "c:/projects/job-agent/data/Bharathwaj_Kaithoju_v2.docx",
         "c:/projects/job-agent/data/Bharathwaj_Kaithoju_Resume_Updated.pdf",
         "c:/projects/job-agent/data/Bharathwaj_Kaithoju_Resume_Updated.docx",
         "c:/projects/job-agent/data/base_resume.pdf",
