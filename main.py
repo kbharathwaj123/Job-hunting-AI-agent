@@ -132,6 +132,9 @@ def prompt_application_mode() -> str:
     print("  [2] Companies Official Website (Official Careers Pages & ATS)")
     print("===========================================================")
     try:
+        if not sys.stdin.isatty():
+            print(">> Background Non-Interactive Execution: Defaulting to Mode 1 [Online Portals]\n")
+            return "portals"
         choice = input("Enter choice (1 or 2, default is 1): ").strip()
         if choice == "2":
             print(">> Mode Selected: [2] Companies Official Website\n")
