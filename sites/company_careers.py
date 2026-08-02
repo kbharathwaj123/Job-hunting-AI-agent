@@ -79,19 +79,30 @@ def handle_otp_or_captcha_verification(page: Page, profile_answers: dict = None)
         if otp_field.count() > 0 and otp_field.first.is_visible():
             print("\n  [ACTION REQUIRED 🔑] OTP Verification Code required by company portal!")
             
-            # Attempt 1: Fully automated email inbox OTP fetch
+            # Attempt 1: Fully automated browser tab Gmail inbox OTP fetch (Zero credentials required)
             otp_code = ""
             email_addr = (profile_answers or {}).get("email", "kaithojubharathwaj123@gmail.com")
             app_pass = (profile_answers or {}).get("gmail_app_password", "")
             
-            if app_pass:
-                from browser.email_otp import fetch_latest_otp
-                otp_code = fetch_latest_otp(email_addr, app_pass, max_wait_seconds=30)
+            try:
+                from browser.email_otp import fetch_latest_otp_from_browser, fetch_latest_otp
+                otp_code = fetch_latest_otp_from_browser(page.context, max_wait_seconds=30)
+            except Exception as e:
+                print(f"  [OTP BROWSER FETCH WARNING] {e}")
+
+            # Attempt 2: Fallback to IMAP if configured
+            if not otp_code and app_pass:
+                try:
+                    otp_code = fetch_latest_otp(email_addr, app_pass, max_wait_seconds=20)
+                except Exception:
+                    pass
                 
-            # Attempt 2: Fallback to terminal input if not auto-retrieved
+            # Attempt 3: Non-blocking terminal input fallback
             if not otp_code:
                 try:
-                    otp_code = input("  >> Enter 6-digit OTP code sent to your email (or press Enter to skip): ").strip()
+                    import sys
+                    if sys.stdin.isatty():
+                        otp_code = input("  >> Enter 6-digit OTP code sent to your email (or press Enter to skip): ").strip()
                 except Exception:
                     pass
 
