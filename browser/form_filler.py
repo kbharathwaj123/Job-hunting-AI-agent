@@ -196,7 +196,7 @@ def fill_form_fields(page: Page, resume_text: str, profile_answers: dict, resume
         except Exception:
             continue
 
-    # 2. Handle Select / Dropdown elements
+    # 2. Handle Select / Dropdown elements & ARIA Comboboxes
     select_elements = page.locator("select").all()
     for select in select_elements:
         if filled_count >= max_fields:
@@ -205,15 +205,43 @@ def fill_form_fields(page: Page, resume_text: str, profile_answers: dict, resume
             if not select.is_visible() or select.is_disabled():
                 continue
             label = find_label_for_element(page, select)
-            if not label:
-                continue
-                
-            best_opt = select_best_option(select, label, resume_text, profile_answers)
+            
+            best_opt = select_best_option(select, label, resume_text, profile_answers) if label else None
             if best_opt:
                 select.select_option(label=best_opt)
                 print(f"  [AUTO-FILL] Dropdown '{label[:35]}' -> Selected '{best_opt}'")
                 filled_count += 1
                 human_delay((0.8, 1.8))
+            else:
+                # Mandatory dropdown fallback for required fields
+                is_req = select.get_attribute("required") is not None or select.get_attribute("aria-required") == "true" or "*" in label
+                opts = select.locator("option").all()
+                if is_req and len(opts) > 1:
+                    select.select_option(index=1)
+                    print(f"  [AUTO-FILL MANDATORY ⚠️] Required Dropdown '{label[:35]}' -> Selected Option 1")
+                    filled_count += 1
+                    human_delay((0.5, 1))
+        except Exception:
+            continue
+
+    # 2b. Handle ARIA Comboboxes / Listboxes (Workday, Greenhouse, Lever custom dropdowns)
+    aria_dropdowns = page.locator("div[role='combobox'], button[aria-haspopup='listbox'], div[role='listbox']").all()
+    for combo in aria_dropdowns:
+        if filled_count >= max_fields:
+            break
+        try:
+            if not combo.is_visible() or combo.is_disabled():
+                continue
+            lbl = find_label_for_element(page, combo)
+            combo.click()
+            human_delay((0.4, 0.8))
+            
+            opts = page.locator("li[role='option'], div[role='option'], [role='treeitem']").all()
+            if opts:
+                opts[0].click()
+                print(f"  [AUTO-FILL ARIA] Dropdown '{lbl[:30]}' -> Clicked Option 1")
+                filled_count += 1
+                human_delay((0.5, 1))
         except Exception:
             continue
 

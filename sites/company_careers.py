@@ -260,11 +260,27 @@ def apply_company_website(context: BrowserContext, company_name: str, role: str,
                     submit_btn.first.click()
                     print(f"  [COMPANY PORTAL SUBMIT] Clicked Submit button for '{company_name}'! Waiting for confirmation response...")
                     page.wait_for_timeout(7000)
-                    from browser.session import capture_confirmation_screenshot
+                    
+                    from browser.session import capture_confirmation_screenshot, verify_submission_confirmation
+                    confirmed = verify_submission_confirmation(page)
+                    
+                    if not confirmed:
+                        fixes = detect_and_fix_validation_errors(page, resume_text, profile_answers)
+                        if fixes > 0:
+                            submit_btn.first.click()
+                            page.wait_for_timeout(5000)
+                            confirmed = verify_submission_confirmation(page)
+                            
                     shot = capture_confirmation_screenshot(page, company_name)
-                    print(f"  [COMPANY WEBSITE APPLY 🎉] Successfully submitted application to '{company_name}'!")
-                    page.close()
-                    return {"status": "submitted", "reason": "Application submitted & confirmation verified", "screenshot": shot}
+                    
+                    if confirmed:
+                        print(f"  [COMPANY WEBSITE APPLY 🎉] Successfully submitted application & verified confirmation for '{company_name}'!")
+                        page.close()
+                        return {"status": "submitted", "reason": "Application submitted & confirmation verified", "screenshot": shot}
+                    else:
+                        print(f"  [COMPANY WEBSITE REVIEW ⚠️] Form submitted, but page requires manual review for '{company_name}'.")
+                        page.close()
+                        return {"status": "staged", "reason": "Requires manual portal review (unfulfilled portal field)", "screenshot": shot}
                 except Exception as e:
                     print(f"  [WARNING] Submit click error: {e}")
             else:

@@ -117,7 +117,9 @@ def easy_apply(context: BrowserContext, job_url: str, resume_text: str, profile_
                     submit_btn.first.click()
                     print("  [LINKEDIN SUBMIT] Clicked Submit application button! Waiting for confirmation response...")
                     page.wait_for_timeout(7000)  # Wait for submission network request & success dialog
-                    submitted_successfully = True
+                    from browser.session import verify_submission_confirmation
+                    if verify_submission_confirmation(page) or modal.count() == 0 or not submit_btn.first.is_visible():
+                        submitted_successfully = True
                     break
                 except Exception as e:
                     print(f"  [LINKEDIN WARNING] Submit click error: {e}")
@@ -144,7 +146,9 @@ def easy_apply(context: BrowserContext, job_url: str, resume_text: str, profile_
                 submit_btn.first.click()
                 print("  [LINKEDIN SUBMIT] Final submission click executed! Waiting for confirmation...")
                 page.wait_for_timeout(7000)
-                submitted_successfully = True
+                from browser.session import verify_submission_confirmation
+                if verify_submission_confirmation(page) or modal.count() == 0 or not submit_btn.first.is_visible():
+                    submitted_successfully = True
             except Exception:
                 pass
 

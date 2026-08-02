@@ -9,7 +9,7 @@ import random
 import time
 import subprocess
 from pathlib import Path
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, Page
 
 PROFILE_DIR = Path(__file__).parent.parent / "data" / "browser_profile"
 SCREENSHOTS_DIR = Path(__file__).parent.parent / "data" / "screenshots"
@@ -121,3 +121,40 @@ def human_type(locator, text: str):
     """Type character-by-character with small random delays, like a person."""
     for ch in text:
         locator.type(ch, delay=random.randint(30, 100))
+
+
+def verify_submission_confirmation(page: Page) -> bool:
+    """
+    Verifies if an application was genuinely submitted by checking for confirmation texts,
+    success dialogs, thank you messages, or post-application URLs.
+    Returns True if confirmed, False if form errors or unsubmitted state remains.
+    """
+    try:
+        url = page.url.lower()
+        if any(kw in url for kw in ["submitted", "thankyou", "thank-you", "success", "confirmation", "applied"]):
+            return True
+            
+        page_text = page.locator("body").inner_text().lower()
+        success_phrases = [
+            "application submitted",
+            "application received",
+            "thank you for applying",
+            "successfully submitted",
+            "your application has been sent",
+            "application was sent",
+            "your application has been received",
+            "thanks for applying",
+            "application complete",
+            "we received your application",
+            "applied!"
+        ]
+        if any(phrase in page_text for phrase in success_phrases):
+            return True
+            
+        # Check if modal closed or success badge appeared
+        success_badges = page.locator(".artdeco-inline-feedback--success, .jobs-post-apply, .success-message, [data-test-icon='check']")
+        if success_badges.count() > 0 and success_badges.first.is_visible():
+            return True
+    except Exception:
+        pass
+    return False
