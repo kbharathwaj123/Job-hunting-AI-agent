@@ -117,9 +117,14 @@ def easy_apply(context: BrowserContext, job_url: str, resume_text: str, profile_
                     submit_btn.first.click()
                     print("  [LINKEDIN SUBMIT] Clicked Submit application button! Waiting for confirmation response...")
                     page.wait_for_timeout(7000)  # Wait for submission network request & success dialog
-                    from browser.session import verify_submission_confirmation
-                    if verify_submission_confirmation(page) or modal.count() == 0 or not submit_btn.first.is_visible():
+                    done_btn = page.locator("button:has-text('Done'), button:has-text('Dismiss'), div.artdeco-inline-feedback--success, h3:has-text('Application submitted')")
+                    if verify_submission_confirmation(page) or done_btn.count() > 0 or not submit_btn.first.is_visible():
                         submitted_successfully = True
+                        if done_btn.count() > 0 and done_btn.first.is_visible():
+                            try:
+                                done_btn.first.click()
+                            except Exception:
+                                pass
                     break
                 except Exception as e:
                     print(f"  [LINKEDIN WARNING] Submit click error: {e}")
@@ -147,8 +152,14 @@ def easy_apply(context: BrowserContext, job_url: str, resume_text: str, profile_
                 print("  [LINKEDIN SUBMIT] Final submission click executed! Waiting for confirmation...")
                 page.wait_for_timeout(7000)
                 from browser.session import verify_submission_confirmation
-                if verify_submission_confirmation(page) or modal.count() == 0 or not submit_btn.first.is_visible():
+                done_btn = page.locator("button:has-text('Done'), button:has-text('Dismiss'), div.artdeco-inline-feedback--success, h3:has-text('Application submitted')")
+                if verify_submission_confirmation(page) or done_btn.count() > 0 or not submit_btn.first.is_visible():
                     submitted_successfully = True
+                    if done_btn.count() > 0 and done_btn.first.is_visible():
+                        try:
+                            done_btn.first.click()
+                        except Exception:
+                            pass
             except Exception:
                 pass
 

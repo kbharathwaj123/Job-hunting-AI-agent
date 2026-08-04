@@ -186,10 +186,13 @@ def fill_form_fields(page: Page, resume_text: str, profile_answers: dict, resume
                     digits = re.sub(r'[^\d]', '', str(answer))
                     if len(digits) >= 10:
                         answer = digits[-10:]
+                elif field_type.lower() in ("number", "numeric") or "years" in label.lower() or "experience" in label.lower() or "how many" in label.lower():
+                    digits = re.sub(r'[^\d]', '', str(answer))
+                    answer = digits if digits else "3"
                         
                 field.click()
                 human_delay((0.3, 0.8))
-                human_type(field, str(answer))
+                field.fill(str(answer))
                 print(f"  [AUTO-FILL] Field '{label[:35]}' -> '{answer}'")
                 filled_count += 1
                 human_delay((0.8, 1.8))
