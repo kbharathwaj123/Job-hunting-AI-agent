@@ -89,8 +89,17 @@ def get_browser_context(headless: bool = False):
                 user_data_dir=str(PROFILE_DIR),
                 headless=headless,
                 viewport=viewport_setting,
+                locale="en-US",
+                extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
                 args=browser_args,
             )
+            try:
+                context.add_cookies([
+                    {"name": "lang", "value": "v=2&lang=en-us", "domain": ".linkedin.com", "path": "/"},
+                    {"name": "li_lang", "value": "en_US", "domain": ".linkedin.com", "path": "/"}
+                ])
+            except Exception:
+                pass
             return playwright, context
         except Exception as e:
             err_str = str(e).lower()
@@ -107,8 +116,17 @@ def get_browser_context(headless: bool = False):
         user_data_dir=str(PROFILE_DIR),
         headless=headless,
         viewport=viewport_setting,
+        locale="en-US",
+        extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
         args=browser_args,
     )
+    try:
+        context.add_cookies([
+            {"name": "lang", "value": "v=2&lang=en-us", "domain": ".linkedin.com", "path": "/"},
+            {"name": "li_lang", "value": "en_US", "domain": ".linkedin.com", "path": "/"}
+        ])
+    except Exception:
+        pass
     return playwright, context
 
 

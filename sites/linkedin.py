@@ -9,13 +9,33 @@ from browser.session import human_delay, human_type, capture_confirmation_screen
 from browser.form_filler import fill_form_fields
 
 
+def ensure_english_linkedin(page: Page):
+    """
+    Detects if LinkedIn interface is rendered in Arabic or non-English (RTL),
+    and automatically enforces English interface cookies/locale.
+    """
+    try:
+        lang_attr = (page.locator("html").get_attribute("lang") or "").lower()
+        dir_attr = (page.locator("html").get_attribute("dir") or "").lower()
+        if "ar" in lang_attr or dir_attr == "rtl":
+            print("  [LANGUAGE ENFORCER 🌐] Arabic/RTL layout detected on LinkedIn. Switching interface to English...")
+            page.context.add_cookies([
+                {"name": "lang", "value": "v=2&lang=en-us", "domain": ".linkedin.com", "path": "/"},
+                {"name": "li_lang", "value": "en_US", "domain": ".linkedin.com", "path": "/"}
+            ])
+            page.reload()
+            human_delay((2, 3))
+    except Exception:
+        pass
+
+
 def search_jobs(context: BrowserContext, roles: list, locations: list, wfh_pref: str) -> list:
     page = context.new_page()
     results = []
 
     for role in roles:
         for loc in locations:
-            url = f"https://www.linkedin.com/jobs/search/?keywords={role}&location={loc}"
+            url = f"https://www.linkedin.com/jobs/search/?keywords={role}&location={loc}&lang=en_US"
             if wfh_pref == "remote_only":
                 url += "&f_WT=2"
             elif wfh_pref == "remote_or_hybrid":
@@ -24,7 +44,8 @@ def search_jobs(context: BrowserContext, roles: list, locations: list, wfh_pref:
             print(f"  [LINKEDIN SEARCH] Opening: {url[:80]}...")
             try:
                 page.goto(url, timeout=25000)
-                human_delay((3, 5))
+                human_delay((2, 4))
+                ensure_english_linkedin(page)
             except Exception as e:
                 print(f"  [LINKEDIN SEARCH ERROR] {e}")
                 continue
@@ -77,10 +98,16 @@ def easy_apply(context: BrowserContext, job_url: str, resume_text: str, profile_
     page = context.new_page()
     page.set_default_timeout(30000)
 
-    print(f"  [LINKEDIN EASY APPLY] Opening job page: {job_url[:80]}...")
+    # Force English locale on LinkedIn job URL
+    target_url = job_url
+    if "lang=en_US" not in target_url:
+        target_url += ("&lang=en_US" if "?" in target_url else "?lang=en_US")
+
+    print(f"  [LINKEDIN EASY APPLY] Opening job page: {target_url[:80]}...")
     try:
-        page.goto(job_url, timeout=25000)
-        human_delay((3, 5))
+        page.goto(target_url, timeout=25000)
+        human_delay((2, 4))
+        ensure_english_linkedin(page)
     except Exception as e:
         page.close()
         return {"status": "error", "reason": f"Could not load LinkedIn job page: {e}"}
