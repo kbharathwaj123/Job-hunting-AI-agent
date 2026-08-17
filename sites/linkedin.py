@@ -17,7 +17,7 @@ def ensure_english_linkedin(page: Page):
     try:
         lang_attr = (page.locator("html").get_attribute("lang") or "").lower()
         dir_attr = (page.locator("html").get_attribute("dir") or "").lower()
-        if "ar" in lang_attr or dir_attr == "rtl":
+        if "ar" in lang_attr or dir_attr == "rtl" or "en" not in lang_attr:
             print("  [LANGUAGE ENFORCER 🌐] Arabic/RTL layout detected on LinkedIn. Switching interface to English...")
             page.context.add_cookies([
                 {"name": "lang", "value": "v=2&lang=en-us", "domain": ".linkedin.com", "path": "/"},
@@ -27,6 +27,49 @@ def ensure_english_linkedin(page: Page):
             human_delay((2, 3))
     except Exception:
         pass
+
+
+def ensure_english_linkedin_account(context: BrowserContext):
+    """
+    Directly navigates to https://www.linkedin.com/mypreferences/d/settings/language on first check,
+    verifies if the interface language is English, selects English if non-English/Arabic,
+    and permanently sets cookies & account preferences for both Mode 1 and Mode 2.
+    """
+    if not context:
+        return
+        
+    print("  [LANGUAGE PREFERENCE 🌐] Verifying LinkedIn account language setting via preferences page...")
+    pref_page = None
+    try:
+        pref_page = context.new_page()
+        pref_page.goto("https://www.linkedin.com/mypreferences/d/settings/language", timeout=25000)
+        human_delay((2, 4))
+        
+        # Inject English cookies
+        context.add_cookies([
+            {"name": "lang", "value": "v=2&lang=en-us", "domain": ".linkedin.com", "path": "/"},
+            {"name": "li_lang", "value": "en_US", "domain": ".linkedin.com", "path": "/"}
+        ])
+        
+        lang_attr = (pref_page.locator("html").get_attribute("lang") or "").lower()
+        dir_attr = (pref_page.locator("html").get_attribute("dir") or "").lower()
+        
+        if "ar" in lang_attr or dir_attr == "rtl" or "en" not in lang_attr:
+            print("  [LANGUAGE PREFERENCE 🌐] Non-English/Arabic interface detected. Enforcing English setting...")
+            eng_options = pref_page.locator("button:has-text('English'), option[value*='en'], a:has-text('English'), label:has-text('English')")
+            if eng_options.count() > 0 and eng_options.first.is_visible():
+                eng_options.first.click()
+                human_delay((1, 2))
+                print("  [LANGUAGE PREFERENCE 🌐] Successfully selected English language preference.")
+                
+        pref_page.close()
+    except Exception as e:
+        print(f"  [LANGUAGE PREFERENCE WARNING] {e}")
+        if pref_page:
+            try:
+                pref_page.close()
+            except Exception:
+                pass
 
 
 def search_jobs(context: BrowserContext, roles: list, locations: list, wfh_pref: str) -> list:

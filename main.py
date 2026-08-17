@@ -178,6 +178,10 @@ def main():
 
     playwright, context = get_browser_context(headless=headless_mode)
     context.set_default_timeout(30000)
+    
+    # 0. Initial Account Language Check & Enforcer via https://www.linkedin.com/mypreferences/d/settings/language
+    linkedin.ensure_english_linkedin_account(context)
+    
     reviews_page = context.new_page()
 
     all_jobs = []
