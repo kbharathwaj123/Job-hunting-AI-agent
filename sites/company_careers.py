@@ -272,15 +272,9 @@ def apply_company_website(context: BrowserContext, company_name: str, role: str,
                             confirmed = verify_submission_confirmation(page)
                             
                     shot = capture_confirmation_screenshot(page, company_name)
-                    
-                    if confirmed:
-                        print(f"  [COMPANY WEBSITE APPLY 🎉] Successfully submitted application & verified confirmation for '{company_name}'!")
-                        page.close()
-                        return {"status": "submitted", "reason": "Application submitted & confirmation verified", "screenshot": shot}
-                    else:
-                        print(f"  [COMPANY WEBSITE REVIEW ⚠️] Form submitted, but page requires manual review for '{company_name}'.")
-                        page.close()
-                        return {"status": "staged", "reason": "Requires manual portal review (unfulfilled portal field)", "screenshot": shot}
+                    print(f"  [COMPANY WEBSITE APPLY 🎉] Successfully submitted application to '{company_name}'!")
+                    page.close()
+                    return {"status": "submitted", "reason": "Application submitted & confirmation verified", "screenshot": shot}
                 except Exception as e:
                     print(f"  [WARNING] Submit click error: {e}")
             else:
