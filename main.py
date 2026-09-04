@@ -14,6 +14,14 @@ Flow per run:
   8. Log everything to data/applications.db
 """
 
+import sys
+import io
+
+if hasattr(sys.stdout, 'buffer'):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'buffer'):
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 import re
 import yaml
 import subprocess
@@ -25,6 +33,7 @@ from docx import Document
 from browser.session import get_browser_context
 from data.db import init_db, already_seen, record, today_count
 from ats.scorer import score_resume_against_job
+from ats.experience import is_experience_eligible
 from ats.company_check import verify_company
 from resume.tailor import tailor_resume
 from sites import linkedin
@@ -323,6 +332,30 @@ def main():
                     print(f"  [VERIFIED] {check['reason']}")
 
             job_description = job.get("description", job["title"])
+            
+            # Experience Eligibility Check (e.g. candidate has 3 yrs exp, acceptable range 2-5 yrs)
+            cand_exp_str = cfg.get("profile_answers", {}).get("total_experience_years", "3")
+            try:
+                cand_exp_val = float(re.sub(r'[^\d.]', '', str(cand_exp_str)))
+            except Exception:
+                cand_exp_val = 3.0
+
+            min_exp_cfg = cfg.get("job_criteria", {}).get("min_experience_years", 2)
+            max_exp_cfg = cfg.get("job_criteria", {}).get("max_experience_years", 5)
+
+            eligible, exp_reason = is_experience_eligible(
+                cand_exp_val, min_exp_cfg, max_exp_cfg, job_description, job["title"]
+            )
+            if not eligible:
+                print(f"  [SKIPPED - EXP MISMATCH 🛑] {exp_reason}")
+                record(job["source"], job["title"], job["company"], job["url"], 0, "exp_mismatch")
+                processed_jobs.append({
+                    "company": job["company"], "title": job["title"], "source": job["source"],
+                    "ats_score": 0, "status": "skipped", "status_reason": exp_reason,
+                    "location": job.get("location", "Not Specified"), "wfh": "Any", "salary": "Not Specified",
+                    "company_email": "Not Listed"
+                })
+                continue
             
             email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', job_description)
             company_email = email_match.group(0) if email_match else "Not Listed"

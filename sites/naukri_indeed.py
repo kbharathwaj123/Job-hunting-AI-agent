@@ -49,10 +49,23 @@ def search_naukri(context: BrowserContext, roles: list, locations: list) -> list
                     comp_el = card.locator("a.subTitle, span.comp-name, a.comp-name")
                     company = comp_el.first.inner_text().strip() if comp_el.count() > 0 else "Company"
 
+                    exp_el = card.locator("span.exp-wrap, li.experience, span.expWD, span[class*='exp']")
+                    exp_text = exp_el.first.inner_text().strip() if exp_el.count() > 0 else ""
+
+                    desc_el = card.locator("span.job-desc, div.job-desc, ul.tags-gt")
+                    desc_text = desc_el.first.inner_text().strip() if desc_el.count() > 0 else ""
+
                     link = title_el.first.get_attribute("href") or ""
                     if link:
                         full_link = f"https://www.naukri.com{link}" if link.startswith("/") else link
-                        results.append({"source": "naukri", "title": title, "company": company, "url": full_link})
+                        full_desc = f"Role: {title}. Company: {company}. Experience required: {exp_text}. Details: {desc_text}"
+                        results.append({
+                            "source": "naukri",
+                            "title": title,
+                            "company": company,
+                            "url": full_link,
+                            "description": full_desc
+                        })
                 except Exception:
                     continue
             human_delay((2, 4))
@@ -105,10 +118,19 @@ def search_indeed(context: BrowserContext, roles: list, locations: list) -> list
                     comp_el = card.locator("span.companyName, span[data-testid='company-name'], div.company_location span")
                     company = comp_el.first.inner_text().strip() if comp_el.count() > 0 else "Company"
 
+                    snippet_el = card.locator("div.job-snippet, table.jobCardShelfContainer")
+                    snippet_text = snippet_el.first.inner_text().strip() if snippet_el.count() > 0 else ""
+
                     link = title_el.first.get_attribute("href") or ""
                     if link:
                         full_link = f"https://www.indeed.com{link}" if link.startswith("/") else link
-                        results.append({"source": "indeed", "title": title, "company": company, "url": full_link})
+                        results.append({
+                            "source": "indeed",
+                            "title": title,
+                            "company": company,
+                            "url": full_link,
+                            "description": f"Role: {title}. Company: {company}. Details: {snippet_text}"
+                        })
                 except Exception:
                     continue
             human_delay((3, 6))
@@ -129,48 +151,74 @@ def apply_naukri(context: BrowserContext, job_url: str, resume_text: str, profil
         page.close()
         return {"status": "error", "reason": f"Could not load Naukri job: {e}"}
 
-    apply_btn = page.locator("button:has-text('Apply'), #apply-button, button.apply-button, span:has-text('Apply')")
+    # Fetch full job description from opened page if available
+    full_description = ""
+    try:
+        desc_el = page.locator("section.styles_job-desc-container__rfv3f, div.job-desc, section.job-details, div.styles_jdc__description__45_9Z")
+        if desc_el.count() > 0:
+            full_description = desc_el.first.inner_text().strip()
+    except Exception:
+        pass
+
+    apply_btn = page.locator("button:has-text('Apply'), #apply-button, button.apply-button, span:has-text('Apply'), button:has-text('Apply on company site')")
     if apply_btn.count() == 0:
         page.close()
         return {"status": "skipped", "reason": "No Apply button found (may already be applied)"}
 
     try:
-        apply_btn.first.click()
-        print(f"  [NAUKRI] Clicked initial Apply button for '{company_name}'.")
-        human_delay((2, 4))
+        apply_btn.first.click(force=True)
+        print(f"  [NAUKRI] Clicked Apply button for '{company_name}'.")
+        human_delay((3, 5))
     except Exception:
         pass
 
+    # Check for new popup tabs created on click
+    active_page = context.pages[-1] if len(context.pages) > 1 else page
+
+    # Check for instant 1-click application success toast
+    toast = active_page.locator("div.apply-message, div.toast-success, span:has-text('successfully applied'), span.already-applied, h2:has-text('applied')")
+    if toast.count() > 0 and toast.first.is_visible():
+        print(f"  [NAUKRI 1-CLICK SUCCESS 🎉] Instant 1-click application confirmed!")
+        shot = capture_confirmation_screenshot(active_page, company_name)
+        page.close()
+        return {"status": "submitted", "reason": "Instant 1-click application verified", "screenshot": shot, "description": full_description}
+
+    # Check for drawer or chatbot dialog
+    drawer = active_page.locator("div.drawer-wrapper, div.chatbot-container, div.custom-apply, div.apply-drawer, [class*='drawer']")
+    target_form = drawer.first if (drawer.count() > 0 and drawer.first.is_visible()) else active_page
+
+    submitted = False
     for _ in range(5):
-        fill_form_fields(page, resume_text, profile_answers)
-        next_btn = page.locator("button:has-text('Save and Continue'), button:has-text('Next')")
+        fill_form_fields(target_form, resume_text, profile_answers, resume_file_path)
+        
+        # Check for submit button on drawer/chatbot
+        if auto_submit:
+            submit_btn = target_form.locator("button:has-text('Submit'), button:has-text('Save & Apply'), button:has-text('Save'), button.chatbot-submit-btn, button:has-text('Send Application')")
+            if submit_btn.count() > 0 and submit_btn.first.is_visible():
+                try:
+                    submit_btn.first.click(force=True)
+                    print("  [NAUKRI SUBMIT] Clicked drawer/form submit button! Waiting for confirmation...")
+                    active_page.wait_for_timeout(5000)
+                    submitted = True
+                    break
+                except Exception:
+                    pass
+
+        next_btn = target_form.locator("button:has-text('Save and Continue'), button:has-text('Next'), button:has-text('Continue')")
         if next_btn.count() > 0 and next_btn.first.is_visible():
             try:
-                next_btn.first.click()
+                next_btn.first.click(force=True)
                 human_delay((2, 4))
             except Exception:
                 break
         else:
             break
 
-    submitted = False
-    if auto_submit:
-        submit_btn = page.locator("button:has-text('Submit'), button:has-text('Send Application'), button:has-text('Apply Now')")
-        if submit_btn.count() > 0 and submit_btn.first.is_visible():
-            try:
-                submit_btn.first.click()
-                print("  [NAUKRI SUBMIT] Clicked final Submit button! Waiting for confirmation screen...")
-                page.wait_for_timeout(7000)
-                submitted = True
-            except Exception as e:
-                print(f"  [NAUKRI WARNING] Submit click error: {e}")
-
-    # Capture confirmation screenshot AFTER submit button is clicked & response loads
-    shot = capture_confirmation_screenshot(page, company_name)
+    shot = capture_confirmation_screenshot(active_page, company_name)
 
     if auto_submit:
         page.close()
-        return {"status": "submitted", "reason": "Application submitted & confirmation verified", "screenshot": shot}
+        return {"status": "submitted", "reason": "Application submitted & confirmation verified", "screenshot": shot, "description": full_description}
 
     print("  -------------------------------------------------------")
     print("  >> APPLICATION READY FOR REVIEW in the browser window!")
@@ -179,7 +227,7 @@ def apply_naukri(context: BrowserContext, job_url: str, resume_text: str, profil
     print("  -------------------------------------------------------")
     input()
     page.close()
-    return {"status": "staged", "reason": "user reviewed manually", "screenshot": shot}
+    return {"status": "staged", "reason": "user reviewed manually", "screenshot": shot, "description": full_description}
 
 
 def apply_indeed(context: BrowserContext, job_url: str, resume_text: str, profile_answers: dict,

@@ -121,9 +121,26 @@ def search_jobs(context: BrowserContext, roles: list, locations: list, wfh_pref:
                     company = comp_el.first.inner_text().strip() if comp_el.count() > 0 else "Company"
 
                     link = title_el.first.get_attribute("href") or ""
-                    if link:
-                        full_link = f"https://www.linkedin.com{link}" if link.startswith("/") else link
-                        results.append({"source": "linkedin", "title": title, "company": company, "url": full_link})
+                    full_link = f"https://www.linkedin.com{link}" if link.startswith("/") else link
+
+                    # Click job card to load right-hand details panel and extract full description
+                    description = ""
+                    try:
+                        card.click(timeout=3000)
+                        human_delay((1, 2))
+                        desc_el = page.locator("div#job-details, div.jobs-search__job-details, div.jobs-description-content__text, article.jobs-description")
+                        if desc_el.count() > 0 and desc_el.first.is_visible():
+                            description = desc_el.first.inner_text().strip()
+                    except Exception:
+                        pass
+
+                    results.append({
+                        "source": "linkedin",
+                        "title": title,
+                        "company": company,
+                        "url": full_link,
+                        "description": description or f"Role: {title} at Company: {company}"
+                    })
                 except Exception:
                     continue
             human_delay((2, 4))
@@ -155,13 +172,13 @@ def easy_apply(context: BrowserContext, job_url: str, resume_text: str, profile_
         page.close()
         return {"status": "error", "reason": f"Could not load LinkedIn job page: {e}"}
 
-    apply_btn = page.locator("button.jobs-apply-button, button:has-text('Easy Apply'), button:has-text('Apply now')")
+    apply_btn = page.locator("button.jobs-apply-button, button:has-text('Easy Apply'), button:has-text('Apply now'), a:has-text('Easy Apply')")
     if apply_btn.count() == 0:
         page.close()
         return {"status": "skipped", "reason": "No Easy Apply button found on page"}
 
     try:
-        apply_btn.first.click()
+        apply_btn.first.click(force=True)
         print(f"  [LINKEDIN EASY APPLY] Opened Easy Apply modal for '{company_name}'.")
         human_delay((2, 4))
     except Exception as e:
@@ -169,29 +186,32 @@ def easy_apply(context: BrowserContext, job_url: str, resume_text: str, profile_
         return {"status": "error", "reason": f"Could not click Easy Apply button: {e}"}
 
     modal = page.locator("div.jobs-easy-apply-modal, div.jobs-easy-apply-content, [role='dialog']")
-    active_target = modal if modal.count() > 0 else page
+    active_target = modal.first if modal.count() > 0 else page
 
     submitted_successfully = False
 
-    for step in range(8):
+    for step in range(10):
         print(f"  [LINKEDIN MODAL 📝] Step {step + 1}: Auto-filling input fields & screening questions...")
         
         filled_count = fill_form_fields(active_target, resume_text, profile_answers)
         print(f"  [LINKEDIN MODAL 📝] Filled {filled_count} fields on Step {step + 1}.")
         
-        submit_btn = page.locator("button:has-text('Submit application'), button:has-text('Submit'), button[aria-label*='Submit application']")
+        submit_btn = active_target.locator("button:has-text('Submit application'), button:has-text('Submit'), button[aria-label*='Submit application']")
+        if submit_btn.count() == 0:
+            submit_btn = page.locator("button:has-text('Submit application'), button:has-text('Submit'), button[aria-label*='Submit application']")
+
         if submit_btn.count() > 0 and submit_btn.first.is_visible():
             print("  [LINKEDIN MODAL 🎯] Final 'Submit application' button detected!")
             if auto_submit:
                 try:
-                    submit_btn.first.click()
+                    submit_btn.first.click(force=True)
                     print("  [LINKEDIN SUBMIT] Clicked Submit application button! Waiting for confirmation response...")
-                    page.wait_for_timeout(7000)  # Wait for submission network request & success dialog
+                    page.wait_for_timeout(7000)
                     submitted_successfully = True
                     done_btn = page.locator("button:has-text('Done'), button:has-text('Dismiss'), div.artdeco-inline-feedback--success, h3:has-text('Application submitted')")
                     if done_btn.count() > 0 and done_btn.first.is_visible():
                         try:
-                            done_btn.first.click()
+                            done_btn.first.click(force=True)
                         except Exception:
                             pass
                     break
@@ -202,11 +222,14 @@ def easy_apply(context: BrowserContext, job_url: str, resume_text: str, profile_
             else:
                 break
 
-        next_btn = page.locator("button:has-text('Next'), button:has-text('Review')")
+        next_btn = active_target.locator("button:has-text('Next'), button:has-text('Review'), button[aria-label*='Continue to next step']")
+        if next_btn.count() == 0:
+            next_btn = page.locator("button:has-text('Next'), button:has-text('Review'), button[aria-label*='Continue to next step']")
+
         if next_btn.count() > 0 and next_btn.first.is_visible():
             try:
                 print("  [LINKEDIN MODAL] Clicking 'Next' / 'Review' to proceed...")
-                next_btn.first.click()
+                next_btn.first.click(force=True)
                 human_delay((2, 4))
             except Exception:
                 break
@@ -217,17 +240,17 @@ def easy_apply(context: BrowserContext, job_url: str, resume_text: str, profile_
 
     # Check for submit button one final time if not yet submitted
     if not submitted_successfully and auto_submit:
-        submit_btn = page.locator("button:has-text('Submit application'), button:has-text('Submit')")
+        submit_btn = page.locator("button:has-text('Submit application'), button:has-text('Submit'), button[aria-label*='Submit application']")
         if submit_btn.count() > 0 and submit_btn.first.is_visible():
             try:
-                submit_btn.first.click()
+                submit_btn.first.click(force=True)
                 print("  [LINKEDIN SUBMIT] Final submission click executed! Waiting for confirmation...")
                 page.wait_for_timeout(7000)
                 submitted_successfully = True
                 done_btn = page.locator("button:has-text('Done'), button:has-text('Dismiss'), div.artdeco-inline-feedback--success, h3:has-text('Application submitted')")
                 if done_btn.count() > 0 and done_btn.first.is_visible():
                     try:
-                        done_btn.first.click()
+                        done_btn.first.click(force=True)
                     except Exception:
                         pass
             except Exception:

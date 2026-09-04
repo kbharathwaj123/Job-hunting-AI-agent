@@ -153,18 +153,19 @@ def handle_file_uploads(page: Page, resume_file_path: str = "") -> int:
     return uploaded
 
 
-def fill_form_fields(page: Page, resume_text: str, profile_answers: dict, resume_file_path: str = "", max_fields: int = 25):
+def fill_form_fields(target, resume_text: str, profile_answers: dict, resume_file_path: str = "", max_fields: int = 25):
     """
-    Scans page for form inputs (text, tel, email, select, radio, checkbox, file upload),
+    Scans target (Page or Locator) for form inputs (text, tel, email, select, radio, checkbox, file upload),
     matches against resume/profile answers, enforces MANDATORY RESUME ATTACHMENT, and fills fields live.
     """
     filled_count = 0
+    page_obj = target.page if hasattr(target, "page") else target
     
     # 0. MANDATORY RESUME ATTACHMENT / SELECTION
-    filled_count += handle_file_uploads(page, resume_file_path)
+    filled_count += handle_file_uploads(page_obj, resume_file_path)
 
     # 1. Handle Text, Number, Email, Tel, and Textarea inputs
-    text_inputs = page.locator("input[type='text'], input[type='number'], input[type='tel'], input[type='email'], input:not([type]), textarea").all()
+    text_inputs = target.locator("input[type='text'], input[type='number'], input[type='tel'], input[type='email'], input:not([type]), textarea").all()
     for field in text_inputs:
         if filled_count >= max_fields:
             break
@@ -175,7 +176,7 @@ def fill_form_fields(page: Page, resume_text: str, profile_answers: dict, resume
             if val:
                 continue
                 
-            label = find_label_for_element(page, field)
+            label = find_label_for_element(page_obj, field)
             if not label:
                 continue
                 
@@ -195,26 +196,26 @@ def fill_form_fields(page: Page, resume_text: str, profile_answers: dict, resume
                 field.fill(str(answer))
                 print(f"  [AUTO-FILL] Field '{label[:35]}' -> '{answer}'")
                 filled_count += 1
-                human_delay((0.8, 1.8))
+                human_delay((0.5, 1.2))
         except Exception:
             continue
 
     # 2. Handle Select / Dropdown elements & ARIA Comboboxes
-    select_elements = page.locator("select").all()
+    select_elements = target.locator("select").all()
     for select in select_elements:
         if filled_count >= max_fields:
             break
         try:
             if not select.is_visible() or select.is_disabled():
                 continue
-            label = find_label_for_element(page, select)
+            label = find_label_for_element(page_obj, select)
             
             best_opt = select_best_option(select, label, resume_text, profile_answers) if label else None
             if best_opt:
                 select.select_option(label=best_opt)
                 print(f"  [AUTO-FILL] Dropdown '{label[:35]}' -> Selected '{best_opt}'")
                 filled_count += 1
-                human_delay((0.8, 1.8))
+                human_delay((0.5, 1.2))
             else:
                 # Mandatory dropdown fallback for required fields
                 is_req = select.get_attribute("required") is not None or select.get_attribute("aria-required") == "true" or "*" in label
@@ -227,19 +228,19 @@ def fill_form_fields(page: Page, resume_text: str, profile_answers: dict, resume
         except Exception:
             continue
 
-    # 2b. Handle ARIA Comboboxes / Listboxes (Workday, Greenhouse, Lever custom dropdowns)
-    aria_dropdowns = page.locator("div[role='combobox'], button[aria-haspopup='listbox'], div[role='listbox']").all()
+    # 2b. Handle ARIA Comboboxes / Listboxes (LinkedIn, Workday, Greenhouse custom dropdowns)
+    aria_dropdowns = target.locator("div[role='combobox'], button[aria-haspopup='listbox'], div[role='listbox'], [data-test-text-entity-list-form-component]").all()
     for combo in aria_dropdowns:
         if filled_count >= max_fields:
             break
         try:
             if not combo.is_visible() or combo.is_disabled():
                 continue
-            lbl = find_label_for_element(page, combo)
+            lbl = find_label_for_element(page_obj, combo)
             combo.click()
             human_delay((0.4, 0.8))
             
-            opts = page.locator("li[role='option'], div[role='option'], [role='treeitem']").all()
+            opts = page_obj.locator("li[role='option'], div[role='option'], [role='treeitem'], option").all()
             if opts:
                 opts[0].click()
                 print(f"  [AUTO-FILL ARIA] Dropdown '{lbl[:30]}' -> Clicked Option 1")
@@ -250,7 +251,7 @@ def fill_form_fields(page: Page, resume_text: str, profile_answers: dict, resume
 
     # 3. Handle Radio Groups
     seen_groups = set()
-    radio_inputs = page.locator("input[type='radio']").all()
+    radio_inputs = target.locator("input[type='radio']").all()
     for radio in radio_inputs:
         if filled_count >= max_fields:
             break
@@ -260,7 +261,7 @@ def fill_form_fields(page: Page, resume_text: str, profile_answers: dict, resume
                 continue
             seen_groups.add(name)
             
-            group = page.locator(f"input[type='radio'][name='{name}']")
+            group = target.locator(f"input[type='radio'][name='{name}']")
             if group.locator(":checked").count() > 0:
                 continue
                 
@@ -269,11 +270,11 @@ def fill_form_fields(page: Page, resume_text: str, profile_answers: dict, resume
             if container.count() > 0:
                 question_text = container.first.inner_text().strip()
             if not question_text:
-                question_text = find_label_for_element(page, radio) or name
+                question_text = find_label_for_element(page_obj, radio) or name
                 
             answer = answer_question(question_text, resume_text, profile_answers)
             if not answer:
-                continue
+                answer = "Yes"
                 
             options = group.all()
             picked = False
@@ -281,37 +282,43 @@ def fill_form_fields(page: Page, resume_text: str, profile_answers: dict, resume
                 opt_id = opt.get_attribute("id")
                 opt_text = ""
                 if opt_id:
-                    lbl = page.locator(f"label[for='{opt_id}']")
+                    lbl = page_obj.locator(f"label[for='{opt_id}']")
                     if lbl.count() > 0:
                         opt_text = lbl.first.inner_text().strip()
                 if opt_text and (opt_text.lower() in answer.lower() or answer.lower() in opt_text.lower()):
-                    opt.check()
+                    try:
+                        opt.check(force=True)
+                    except Exception:
+                        opt.click(force=True)
                     print(f"  [AUTO-FILL] Radio '{question_text[:30]}...' -> Checked '{opt_text}'")
                     picked = True
                     break
             if not picked and options:
-                options[0].check()
+                try:
+                    options[0].check(force=True)
+                except Exception:
+                    options[0].click(force=True)
                 picked_lbl = ""
                 opt_id = options[0].get_attribute("id")
                 if opt_id:
-                    lbl = page.locator(f"label[for='{opt_id}']")
+                    lbl = page_obj.locator(f"label[for='{opt_id}']")
                     if lbl.count() > 0:
                         picked_lbl = lbl.first.inner_text().strip()
                 print(f"  [AUTO-FILL] Radio '{question_text[:30]}...' -> Fallback Checked '{picked_lbl or 'Option 1'}'")
                 
             filled_count += 1
-            human_delay((0.8, 1.8))
+            human_delay((0.5, 1.2))
         except Exception:
             continue
 
     # 4. Handle Checkboxes
-    checkboxes = page.locator("input[type='checkbox']").all()
+    checkboxes = target.locator("input[type='checkbox']").all()
     for cb in checkboxes:
         try:
             if not cb.is_visible() or cb.is_disabled() or cb.is_checked():
                 continue
             
-            cb_label = find_label_for_element(page, cb).lower()
+            cb_label = find_label_for_element(page_obj, cb).lower()
             check_it = False
             if any(term in cb_label for term in ["agree", "accept", "terms", "policy", "declaration", "consent"]):
                 check_it = True
@@ -321,7 +328,10 @@ def fill_form_fields(page: Page, resume_text: str, profile_answers: dict, resume
                     check_it = True
                     
             if check_it:
-                cb.check()
+                try:
+                    cb.check(force=True)
+                except Exception:
+                    cb.click(force=True)
                 print(f"  [AUTO-FILL] Checkbox '{cb_label[:30]}...' -> Checked")
                 human_delay((0.5, 1))
         except Exception:
