@@ -59,13 +59,9 @@ def is_experience_eligible(
 ) -> tuple[bool, str]:
     """
     Determines if a job's experience requirement is suitable for the candidate.
-
-    Example:
-      Candidate exp = 3 years, allowed range = 2 to 5 years.
-      - Job requires 2-5 yrs -> Eligible
-      - Job requires 3-6 yrs -> Eligible
-      - Job requires 8-12 yrs -> Not eligible
-      - Job requires 10+ yrs -> Not eligible
+    Enforces bidirectional matching:
+      1. Prevents under-qualification (e.g. candidate 3 yrs applying to 7-10 yrs jobs).
+      2. Prevents over-qualification (e.g. candidate 10 yrs applying to 1-3 yrs junior jobs).
     """
     full_text = f"{job_title} {job_description}"
     min_req, max_req = extract_experience_requirement(full_text)
@@ -74,16 +70,21 @@ def is_experience_eligible(
     if min_req is None and max_req is None:
         return True, "No specific experience requirement detected in posting"
 
-    # Case 1: Range provided (e.g. min_req = 8, max_req = 12)
-    if min_req is not None and max_req is not None:
-        if min_req > max_allowed or min_req > (candidate_exp + 2):
-            return False, f"Job requires {min_req}-{max_req} yrs exp (Candidate exp: {candidate_exp} yrs, allowed max: {max_allowed} yrs)"
-        return True, f"Job requirement {min_req}-{max_req} yrs matches candidate exp ({candidate_exp} yrs)"
-
-    # Case 2: Minimum experience only (e.g. 5+ years, 10+ years, min 8 years)
+    # 1. Under-qualification check (Job requires more experience than candidate has)
     if min_req is not None:
         if min_req > max_allowed or min_req > (candidate_exp + 2):
             return False, f"Job requires {min_req}+ yrs exp (Candidate exp: {candidate_exp} yrs, allowed max: {max_allowed} yrs)"
+
+    # 2. Over-qualification check (Job requires much less experience than candidate has)
+    if max_req is not None:
+        if max_req < min_allowed or max_req < (candidate_exp - 3):
+            return False, f"Job max experience requirement is {max_req} yrs (Candidate exp: {candidate_exp} yrs) - junior role overqualification"
+
+    # 3. If range is provided (e.g. 2-5 yrs, 8-12 yrs)
+    if min_req is not None and max_req is not None:
+        return True, f"Job requirement {min_req}-{max_req} yrs matches candidate exp ({candidate_exp} yrs)"
+
+    if min_req is not None:
         return True, f"Job requirement {min_req}+ yrs matches candidate exp ({candidate_exp} yrs)"
 
     return True, "Experience check passed"
