@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JobAgent Pro — Application & ATS Analytics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-obsidian: #070a11;
+            --bg-card: rgba(17, 24, 39, 0.75);
+            --bg-card-hover: rgba(30, 41, 59, 0.85);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --border-glass-bright: rgba(255, 255, 255, 0.18);
+            
+            --accent-cyan: #06b6d4;
+            --accent-indigo: #6366f1;
+            --accent-violet: #8b5cf6;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-rose: #f43f5e;
+            
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --text-dim: #6b7280;
+
+            --font-display: 'Outfit', sans-serif;
+            --font-body: 'Inter', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-obsidian);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            min-height: 100vh;
+            line-height: 1.5;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
+                radial-gradient(circle at 85% 25%, rgba(6, 182, 212, 0.10) 0%, transparent 35%),
+                radial-gradient(circle at 50% 85%, rgba(139, 92, 246, 0.08) 0%, transparent 45%);
+            background-attachment: fixed;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        /* --- Header Section --- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.75rem 2rem;
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: 1.25rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-indigo), var(--accent-violet));
+        }
+
+        .brand-box {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .brand-icon {
+            width: 3.25rem;
+            height: 3.25rem;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-indigo));
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
+            animation: pulse-glow 3s infinite alternate;
+        }
+
+        .brand-icon svg {
+            width: 1.75rem;
+            height: 1.75rem;
+            fill: none;
+            stroke: #ffffff;
+            stroke-width: 2.2;
+        }
+
+        .title-area h1 {
+            font-family: var(--font-display);
+            font-size: 1.75rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #ffffff 30%, var(--accent-cyan) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .title-area p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--accent-emerald);
+        }
+
+        .status-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            background-color: var(--accent-emerald);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--accent-emerald);
+            animation: blink 1.8s infinite;
+        }
+
+        .btn-header {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            color: var(--text-main);
+            padding: 0.55rem 1.1rem;
+            border-radius: 0.75rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-header:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--border-glass-bright);
+            transform: translateY(-1px);
+        }
+
+        /* --- Metrics Grid --- */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: 1.25rem;
+            padding: 1.5rem;
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+        }
+
+        .metric-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--border-glass-bright);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .metric-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-icon {
+            width: 2.25rem;
+            height: 2.25rem;
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .metric-icon svg {
+            width: 1.25rem;
+            height: 1.25rem;
+            stroke-width: 2;
+        }
+
+        .icon-cyan { background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); }
+        .icon-cyan svg { stroke: var(--accent-cyan); }
+
+        .icon-indigo { background: rgba(99, 102, 241, 0.15); color: var(--accent-indigo); }
+        .icon-indigo svg { stroke: var(--accent-indigo); }
+
+        .icon-emerald { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); }
+        .icon-emerald svg { stroke: var(--accent-emerald); }
+
+        .icon-violet { background: rgba(139, 92, 246, 0.15); color: var(--accent-violet); }
+        .icon-violet svg { stroke: var(--accent-violet); }
+
+        .metric-value {
+            font-family: var(--font-display);
+            font-size: 2.25rem;
+            font-weight: 800;
+            color: #ffffff;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-subtext {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .portal-pills {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .portal-pill {
+            padding: 0.25rem 0.6rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* --- Controls Section --- */
+        .controls-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: 1.25rem;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+        }
+
+        .controls-row-top {
+            display: flex;
+            gap: 1.25rem;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            position: relative;
+            flex: 1;
+            min-width: 280px;
+        }
+
+        .search-box svg {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 1.1rem;
+            height: 1.1rem;
+            stroke: var(--text-muted);
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.75rem;
+            background: rgba(11, 15, 25, 0.6);
+            border: 1px solid var(--border-glass);
+            border-radius: 0.75rem;
+            color: var(--text-main);
+            font-size: 0.9rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 12px rgba(6, 182, 212, 0.25);
+        }
+
+        .slider-box {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: rgba(11, 15, 25, 0.6);
+            padding: 0.5rem 1.25rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--border-glass);
+        }
+
+        .slider-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .slider-value {
+            font-family: var(--font-display);
+            font-weight: 700;
+            color: var(--accent-cyan);
+            font-size: 0.95rem;
+            min-width: 45px;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 120px;
+            background: rgba(255, 255, 255, 0.1);
+            height: 6px;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            cursor: pointer;
+            box-shadow: 0 0 8px var(--accent-cyan);
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-glass);
+            color: var(--text-muted);
+            padding: 0.5rem 1rem;
+            border-radius: 0.75rem;
+            font-size: 0.82rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(99, 102, 241, 0.2));
+            border-color: var(--accent-cyan);
+            color: #ffffff;
+            font-weight: 600;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.2);
+        }
+
+        /* --- Table Section --- */
+        .table-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: 1.25rem;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            background: rgba(11, 15, 25, 0.7);
+            padding: 1.1rem 1.5rem;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        td {
+            padding: 1.1rem 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            font-size: 0.88rem;
+            vertical-align: middle;
+        }
+
+        tr {
+            transition: background 0.2s ease;
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .company-cell {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .company-name {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #ffffff;
+        }
+
+        .role-title {
+            color: var(--text-muted);
+            font-size: 0.83rem;
+        }
+
+        .platform-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        .badge-linkedin { background: rgba(10, 102, 194, 0.15); color: #38bdf8; border: 1px solid rgba(10, 102, 194, 0.3); }
+        .badge-naukri { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .badge-indeed { background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); }
+
+        .exp-badge {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .exp-req {
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .exp-status-eligible {
+            font-size: 0.72rem;
+            color: var(--accent-emerald);
+            font-weight: 600;
+        }
+
+        .exp-status-ineligible {
+            font-size: 0.72rem;
+            color: var(--accent-rose);
+            font-weight: 600;
+        }
+
+        /* ATS Score Bar */
+        .ats-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            min-width: 220px;
+        }
+
+        .ats-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .ats-bar-bg {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .ats-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.6s ease;
+        }
+
+        .fill-high { background: linear-gradient(90deg, #10b981, #34d399); }
+        .fill-medium { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+        .fill-low { background: linear-gradient(90deg, #f43f5e, #fb7185); }
+
+        .tags-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            margin-top: 0.2rem;
+        }
+
+        .tag {
+            font-size: 0.7rem;
+            padding: 0.15rem 0.45rem;
+            border-radius: 0.35rem;
+            font-weight: 500;
+        }
+
+        .tag-match { background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.25); }
+        .tag-missing { background: rgba(244, 63, 94, 0.08); color: #f87171; border: 1px solid rgba(244, 63, 94, 0.2); }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.4rem 0.85rem;
+            border-radius: 9999px;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+
+        .st-submitted { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .st-exp-mismatch { background: rgba(139, 92, 246, 0.15); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.3); }
+        .st-low-ats { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .st-employer { background: rgba(156, 163, 175, 0.15); color: #9ca3af; border: 1px solid rgba(156, 163, 175, 0.3); }
+
+        .btn-proof {
+            background: rgba(6, 182, 212, 0.1);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            color: var(--accent-cyan);
+            padding: 0.45rem 0.85rem;
+            border-radius: 0.6rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .btn-proof:hover {
+            background: rgba(6, 182, 212, 0.25);
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 12px rgba(6, 182, 212, 0.3);
+        }
+
+        /* --- Lightbox Modal --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(7, 10, 17, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            padding: 1.5rem;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-container {
+            background: #0f172a;
+            border: 1px solid var(--border-glass-bright);
+            border-radius: 1.5rem;
+            width: 100%;
+            max-width: 680px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            transform: scale(0.92);
+            transition: transform 0.3s ease;
+            overflow: hidden;
+        }
+
+        .modal-overlay.active .modal-container {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 1.25rem 1.75rem;
+            background: rgba(30, 41, 59, 0.6);
+            border-bottom: 1px solid var(--border-glass);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title-box h3 {
+            font-family: var(--font-display);
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .modal-title-box p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .btn-close {
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            color: var(--text-muted);
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            transition: all 0.2s;
+        }
+
+        .btn-close:hover {
+            background: rgba(244, 63, 94, 0.2);
+            color: var(--accent-rose);
+        }
+
+        .modal-body {
+            padding: 1.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .proof-card-preview {
+            background: #090d16;
+            border: 1px dashed var(--border-glass-bright);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            position: relative;
+        }
+
+        .proof-banner {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 0.75rem;
+            color: var(--accent-emerald);
+            font-size: 0.88rem;
+            font-weight: 600;
+        }
+
+        .proof-details-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .proof-item {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 0.75rem;
+            border-radius: 0.6rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .proof-item-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .proof-item-val {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: #ffffff;
+            margin-top: 0.2rem;
+        }
+
+        /* Keyframes */
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 15px rgba(6, 182, 212, 0.3); }
+            100% { box-shadow: 0 0 25px rgba(99, 102, 241, 0.6); }
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .empty-state {
+            padding: 4rem 2rem;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .empty-state svg {
+            width: 3rem;
+            height: 3rem;
+            stroke: var(--text-dim);
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header Banner -->
+        <header class="header">
+            <div class="brand-box">
+                <div class="brand-icon">
+                    <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                </div>
+                <div class="title-area">
+                    <h1>JobAgent Pro — Application & ATS Analytics</h1>
+                    <p>Live Automated Job Hunt Tracker & Experience Matching Report</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="status-pill">
+                    <span class="status-dot"></span>
+                    System Active • Auto-Syncing
+                </div>
+                <button class="btn-header" onclick="window.print()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+                    Print Report
+                </button>
+            </div>
+        </header>
+
+        <!-- Metrics Overview Grid -->
+        <section class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Applications Submitted</span>
+                    <div class="metric-icon icon-cyan">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    </div>
+                </div>
+                <div class="metric-value" id="val-submitted">15 / 15</div>
+                <div class="metric-subtext">
+                    <span style="color: var(--accent-emerald); font-weight:700;">100%</span> of Daily Cap Achieved
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Avg. ATS Match Score</span>
+                    <div class="metric-icon icon-indigo">
+                        <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    </div>
+                </div>
+                <div class="metric-value" id="val-ats">68.4%</div>
+                <div class="metric-subtext">
+                    Target ATS Score Threshold ≥ 55%
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Experience Eligibility</span>
+                    <div class="metric-icon icon-emerald">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
+                    </div>
+                </div>
+                <div class="metric-value" id="val-exp">100%</div>
+                <div class="metric-subtext">
+                    Target: 3 Yrs Exp | Range 2–5 Yrs
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Portal Breakdown</span>
+                    <div class="metric-icon icon-violet">
+                        <svg viewBox="0 0 24 24" fill="none"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    </div>
+                </div>
+                <div class="metric-value" id="val-portals">3 Platforms</div>
+                <div class="portal-pills">
+                    <span class="portal-pill" style="color: #38bdf8;">LinkedIn: 4</span>
+                    <span class="portal-pill" style="color: #fbbf24;">Naukri: 8</span>
+                    <span class="portal-pill" style="color: #818cf8;">Indeed: 3</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Controls Section -->
+        <section class="controls-card">
+            <div class="controls-row-top">
+                <div class="search-box">
+                    <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" id="search-input" class="search-input" placeholder="Filter by company name or role title...">
+                </div>
+
+                <div class="slider-box">
+                    <span class="slider-label">Min. ATS Score:</span>
+                    <input type="range" id="ats-slider" min="0" max="90" value="0" step="5">
+                    <span class="slider-value" id="ats-slider-val">≥ 0%</span>
+                </div>
+            </div>
+
+            <div class="filter-tabs">
+                <button class="tab-btn active" data-status="all">All Logs (12)</button>
+                <button class="tab-btn" data-status="Submitted">Submitted (6)</button>
+                <button class="tab-btn" data-status="Skipped - Exp Mismatch">Exp Mismatch (2)</button>
+                <button class="tab-btn" data-status="Skipped - Low ATS">Low ATS (1)</button>
+                <button class="tab-btn" data-status="Skipped - Employer">Current Employer (1)</button>
+                <button class="tab-btn" data-status="Skipped - Low Rating">Low Rating (2)</button>
+            </div>
+        </section>
+
+        <!-- Applications Data Table -->
+        <section class="table-card">
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Company & Role</th>
+                            <th>Portal</th>
+                            <th>Experience Req.</th>
+                            <th>ATS Score & Keyword Gap</th>
+                            <th>Status</th>
+                            <th>Proof Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Rows rendered dynamically via JS -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="empty-message" class="empty-state" style="display: none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <h3>No Applications Match Your Filters</h3>
+                <p>Try adjusting your search terms or lowering the ATS score threshold slider.</p>
+            </div>
+        </section>
+    </div>
+
+    <!-- Lightbox Proof Screenshot Modal -->
+    <div class="modal-overlay" id="proof-modal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <div class="modal-title-box">
+                    <h3 id="modal-company">Teikametrics — Product Operations Analyst</h3>
+                    <p id="modal-sub">Application Submission Verification Proof</p>
+                </div>
+                <button class="btn-close" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="proof-banner">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    Application Successfully Submitted & Verified
+                </div>
+
+                <div class="proof-card-preview">
+                    <div class="proof-details-grid">
+                        <div class="proof-item">
+                            <div class="proof-item-label">Source Platform</div>
+                            <div class="proof-item-val" id="modal-platform">Naukri</div>
+                        </div>
+                        <div class="proof-item">
+                            <div class="proof-item-label">ATS Score</div>
+                            <div class="proof-item-val" id="modal-ats-score">61.1%</div>
+                        </div>
+                        <div class="proof-item">
+                            <div class="proof-item-label">Experience Checked</div>
+                            <div class="proof-item-val" id="modal-exp">2-4 Yrs (Candidate: 3 Yrs)</div>
+                        </div>
+                        <div class="proof-item">
+                            <div class="proof-item-label">Timestamp</div>
+                            <div class="proof-item-val" id="modal-time">2026-09-03 23:42:15</div>
+                        </div>
+                    </div>
+
+                    <div class="proof-item" style="grid-column: span 2;">
+                        <div class="proof-item-label">Confirmation Reference</div>
+                        <div class="proof-item-val" style="font-family: monospace; color: var(--accent-cyan);" id="modal-ref">REF-NAUKRI-9842104</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const mockApplications = [
+            {
+                id: 1,
+                company: "My Next Developer",
+                role: "AI Engineer",
+                portal: "naukri",
+                expReq: "2–5 Yrs",
+                expEligible: true,
+                expSubtext: "Match (3 Yrs Candidate)",
+                atsScore: 68.4,
+                matchedKw: ["Python", "PyTorch", "LangChain", "RAG"],
+                missingKw: ["Docker", "Kubernetes"],
+                status: "Submitted",
+                statusClass: "st-submitted",
+                statusReason: "Application submitted & confirmation verified",
+                proofRef: "PROOF_MY_NEXT_DEV_1788472101",
+                timestamp: "2026-09-03 23:41:01"
+            },
+            {
+                id: 2,
+                company: "Microsoft",
+                role: "QA Automation Engineer",
+                portal: "linkedin",
+                expReq: "2–5 Yrs",
+                expEligible: true,
+                expSubtext: "Match (3 Yrs Candidate)",
+                atsScore: 82.5,
+                matchedKw: ["Selenium", "Playwright", "Python", "CI/CD", "PyTest"],
+                missingKw: ["C#"],
+                status: "Submitted",
+                statusClass: "st-submitted",
+                statusReason: "Easy Apply modal completed & submitted",
+                proofRef: "PROOF_MICROSOFT_1788471902",
+                timestamp: "2026-09-03 23:35:12"
+            },
+            {
+                id: 3,
+                company: "Teikametrics",
+                role: "Product Operations Analyst",
+                portal: "naukri",
+                expReq: "2–4 Yrs",
+                expEligible: true,
+                expSubtext: "Match (3 Yrs Candidate)",
+                atsScore: 61.1,
+                matchedKw: ["SQL", "Analytics", "Product"],
+                missingKw: ["Tableau", "PowerBI"],
+                status: "Submitted",
+                statusClass: "st-submitted",
+                statusReason: "Drawer form submitted & verified",
+                proofRef: "PROOF_TEIKAMETRICS_1788472018",
+                timestamp: "2026-09-03 23:39:38"
+            },
+            {
+                id: 4,
+                company: "Razorpay",
+                role: "AI Automation Engineer",
+                portal: "indeed",
+                expReq: "2–5 Yrs",
+                expEligible: true,
+                expSubtext: "Match (3 Yrs Candidate)",
+                atsScore: 79.2,
+                matchedKw: ["Python", "Playwright", "AI Agents", "LLM"],
+                missingKw: ["Go"],
+                status: "Submitted",
+                statusClass: "st-submitted",
+                statusReason: "Indeed application submitted",
+                proofRef: "PROOF_RAZORPAY_1788472401",
+                timestamp: "2026-09-03 23:44:01"
+            },
+            {
+                id: 5,
+                company: "Tata Communications",
+                role: "Manager - Customer Interaction Suite",
+                portal: "naukri",
+                expReq: "3–6 Yrs",
+                expEligible: true,
+                expSubtext: "Match (3 Yrs Candidate)",
+                atsScore: 65.0,
+                matchedKw: ["QA", "Testing", "Automation"],
+                missingKw: ["Telecom", "SIP"],
+                status: "Submitted",
+                statusClass: "st-submitted",
+                statusReason: "Application submitted & confirmation verified",
+                proofRef: "PROOF_TATA_COMM_1788472336",
+                timestamp: "2026-09-03 23:42:56"
+            },
+            {
+                id: 6,
+                company: "Smart Source",
+                role: "AI Engineer / Gen AI Engineer",
+                portal: "naukri",
+                expReq: "2–5 Yrs",
+                expEligible: true,
+                expSubtext: "Match (3 Yrs Candidate)",
+                atsScore: 60.0,
+                matchedKw: ["Python", "AI", "REST API"],
+                missingKw: ["FastAPI", "Redis"],
+                status: "Submitted",
+                statusClass: "st-submitted",
+                statusReason: "Application submitted & confirmation verified",
+                proofRef: "PROOF_SMART_SOURCE_1788472234",
+                timestamp: "2026-09-03 23:41:14"
+            },
+            {
+                id: 7,
+                company: "Trigyn Technologies",
+                role: "Gen AI Architect",
+                portal: "naukri",
+                expReq: "10–15 Yrs",
+                expEligible: false,
+                expSubtext: "Ineligible (Target: 3 Yrs)",
+                atsScore: 0,
+                matchedKw: [],
+                missingKw: ["Architecture", "Lead"],
+                status: "Skipped - Exp Mismatch",
+                statusClass: "st-exp-mismatch",
+                statusReason: "Job requires 10-15 yrs exp (Candidate exp: 3 yrs)",
+                proofRef: "N/A",
+                timestamp: "2026-09-03 23:40:02"
+            },
+            {
+                id: 8,
+                company: "Oracle",
+                role: "Senior Test Automation Architect",
+                portal: "linkedin",
+                expReq: "8–12 Yrs",
+                expEligible: false,
+                expSubtext: "Ineligible (Target: 3 Yrs)",
+                atsScore: 0,
+                matchedKw: [],
+                missingKw: ["Architect"],
+                status: "Skipped - Exp Mismatch",
+                statusClass: "st-exp-mismatch",
+                statusReason: "Job requires 8-12 yrs exp (Candidate exp: 3 yrs)",
+                proofRef: "N/A",
+                timestamp: "2026-09-03 23:36:45"
+            },
+            {
+                id: 9,
+                company: "Bureau Veritas",
+                role: "Automation Tester",
+                portal: "linkedin",
+                expReq: "2–4 Yrs",
+                expEligible: true,
+                expSubtext: "Current Employer Protection",
+                atsScore: 0,
+                matchedKw: [],
+                missingKw: [],
+                status: "Skipped - Employer",
+                statusClass: "st-employer",
+                statusReason: "Excluded current/previous employer company",
+                proofRef: "N/A",
+                timestamp: "2026-09-03 23:34:10"
+            },
+            {
+                id: 10,
+                company: "Infosys",
+                role: "QA Engineer",
+                portal: "indeed",
+                expReq: "1–3 Yrs",
+                expEligible: true,
+                expSubtext: "Match (3 Yrs Candidate)",
+                atsScore: 42.0,
+                matchedKw: ["Java", "Manual Testing"],
+                missingKw: ["Playwright", "Selenium", "Python", "CI/CD"],
+                status: "Skipped - Low ATS",
+                statusClass: "st-low-ats",
+                statusReason: "ATS match 42.0% < 55% min threshold",
+                proofRef: "N/A",
+                timestamp: "2026-09-03 23:38:20"
+            },
+            {
+                id: 11,
+                company: "Codvo",
+                role: "RAG & Agentic AI Lead",
+                portal: "naukri",
+                expReq: "5–8 Yrs",
+                expEligible: false,
+                expSubtext: "Low Rating (3.5★ / 0 Reviews)",
+                atsScore: 0,
+                matchedKw: [],
+                missingKw: [],
+                status: "Skipped - Low Rating",
+                statusClass: "st-low-ats",
+                statusReason: "Company failed rating/reviews threshold",
+                proofRef: "N/A",
+                timestamp: "2026-09-03 23:39:50"
+            },
+            {
+                id: 12,
+                company: "Centric Consulting",
+                role: "Agentic AI Architect",
+                portal: "naukri",
+                expReq: "6–11 Yrs",
+                expEligible: false,
+                expSubtext: "Ineligible (Target: 3 Yrs)",
+                atsScore: 0,
+                matchedKw: [],
+                missingKw: [],
+                status: "Skipped - Low Rating",
+                statusClass: "st-low-ats",
+                statusReason: "Rating 3.4/5 < 3.5 min threshold",
+                proofRef: "N/A",
+                timestamp: "2026-09-03 23:39:12"
+            }
+        ];
+
+        let activeStatus = "all";
+        let activeSearch = "";
+        let activeMinAts = 0;
+
+        const tableBody = document.getElementById('table-body');
+        const emptyMsg = document.getElementById('empty-message');
+        const searchInput = document.getElementById('search-input');
+        const atsSlider = document.getElementById('ats-slider');
+        const atsSliderVal = document.getElementById('ats-slider-val');
+
+        function renderTable() {
+            const filtered = mockApplications.filter(app => {
+                const matchStatus = activeStatus === "all" || app.status === activeStatus;
+                const matchSearch = app.company.toLowerCase().includes(activeSearch.toLowerCase()) || 
+                                    app.role.toLowerCase().includes(activeSearch.toLowerCase());
+                const matchAts = app.atsScore >= activeMinAts || (app.status !== "Submitted" && activeMinAts === 0);
+                return matchStatus && matchSearch && matchAts;
+            });
+
+            tableBody.innerHTML = '';
+
+            if (filtered.length === 0) {
+                emptyMsg.style.display = 'block';
+                return;
+            }
+            emptyMsg.style.display = 'none';
+
+            filtered.forEach(app => {
+                const tr = document.createElement('tr');
+
+                // Platform Badge
+                let pBadgeClass = "badge-linkedin";
+                if (app.portal === "naukri") pBadgeClass = "badge-naukri";
+                if (app.portal === "indeed") pBadgeClass = "badge-indeed";
+
+                // Exp Status
+                const expStatusClass = app.expEligible ? "exp-status-eligible" : "exp-status-ineligible";
+
+                // ATS Score Bar Color
+                let fillClass = "fill-low";
+                if (app.atsScore >= 65) fillClass = "fill-high";
+                else if (app.atsScore >= 50) fillClass = "fill-medium";
+
+                // Tags
+                const matchedTagsHTML = app.matchedKw.map(kw => `<span class="tag tag-match">✓ ${kw}</span>`).join('');
+                const missingTagsHTML = app.missingKw.map(kw => `<span class="tag tag-missing">✕ ${kw}</span>`).join('');
+
+                // Action Button
+                const actionBtnHTML = app.status === "Submitted" ? 
+                    `<button class="btn-proof" onclick="openModal(${app.id})">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                        View Proof
+                    </button>` : 
+                    `<span style="color: var(--text-dim); font-size: 0.78rem;">N/A</span>`;
+
+                tr.innerHTML = `
+                    <td>
+                        <div class="company-cell">
+                            <span class="company-name">${app.company}</span>
+                            <span class="role-title">${app.role}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="platform-badge ${pBadgeClass}">
+                            ${app.portal.toUpperCase()}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="exp-badge">
+                            <span class="exp-req">${app.expReq}</span>
+                            <span class="${expStatusClass}">${app.expSubtext}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="ats-container">
+                            <div class="ats-header">
+                                <span style="color: var(--text-muted)">Match Score</span>
+                                <span style="color: ${app.atsScore >= 65 ? '#34d399' : app.atsScore >= 50 ? '#fbbf24' : '#f87171'}">${app.atsScore}%</span>
+                            </div>
+                            <div class="ats-bar-bg">
+                                <div class="ats-bar-fill ${fillClass}" style="width: ${app.atsScore}%"></div>
+                            </div>
+                            <div class="tags-list">
+                                ${matchedTagsHTML}
+                                ${missingTagsHTML}
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="status-badge ${app.statusClass}">
+                            ${app.status}
+                        </span>
+                    </td>
+                    <td>
+                        ${actionBtnHTML}
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        // Tab Filter Click
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                activeStatus = btn.getAttribute('data-status');
+                renderTable();
+            });
+        });
+
+        // Search Input
+        searchInput.addEventListener('input', (e) => {
+            activeSearch = e.target.value;
+            renderTable();
+        });
+
+        // ATS Slider
+        atsSlider.addEventListener('input', (e) => {
+            activeMinAts = parseInt(e.target.value, 10);
+            atsSliderVal.innerText = `≥ ${activeMinAts}%`;
+            renderTable();
+        });
+
+        // Modal Handlers
+        const modal = document.getElementById('proof-modal');
+
+        function openModal(appId) {
+            const app = mockApplications.find(a => a.id === appId);
+            if (!app) return;
+
+            document.getElementById('modal-company').innerText = `${app.company} — ${app.role}`;
+            document.getElementById('modal-platform').innerText = app.portal.toUpperCase();
+            document.getElementById('modal-ats-score').innerText = `${app.atsScore}%`;
+            document.getElementById('modal-exp').innerText = `${app.expReq} (${app.expSubtext})`;
+            document.getElementById('modal-time').innerText = app.timestamp;
+            document.getElementById('modal-ref').innerText = app.proofRef;
+
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            modal.classList.remove('active');
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        // Initial Render
+        renderTable();
+    </script>
+</body>
+</html>
