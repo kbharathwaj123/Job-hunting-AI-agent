@@ -86,8 +86,13 @@ def search_jobs(context: BrowserContext, roles: list, locations: list, wfh_pref:
 
             print(f"  [LINKEDIN SEARCH] Opening: {url[:80]}...")
             try:
-                page.goto(url, timeout=25000)
-                human_delay((2, 4))
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                card_query = "div.job-card-container, li.jobs-search-results__list-item, div.jobs-search-results-list__list-item, div.job-card-list, div.base-card"
+                try:
+                    page.wait_for_selector(card_query, timeout=10000, state="attached")
+                except Exception:
+                    pass
+                human_delay((2, 3))
                 ensure_english_linkedin(page)
             except Exception as e:
                 print(f"  [LINKEDIN SEARCH ERROR] {e}")
@@ -127,9 +132,13 @@ def search_jobs(context: BrowserContext, roles: list, locations: list, wfh_pref:
                     description = ""
                     try:
                         card.click(timeout=3000)
-                        human_delay((1, 2))
-                        desc_el = page.locator("div#job-details, div.jobs-search__job-details, div.jobs-description-content__text, article.jobs-description")
-                        if desc_el.count() > 0 and desc_el.first.is_visible():
+                        desc_query = "div#job-details, div.jobs-search__job-details, div.jobs-description-content__text, article.jobs-description"
+                        try:
+                            page.wait_for_selector(desc_query, timeout=5000, state="attached")
+                        except Exception:
+                            pass
+                        desc_el = page.locator(desc_query)
+                        if desc_el.count() > 0:
                             description = desc_el.first.inner_text().strip()
                     except Exception:
                         pass
@@ -165,22 +174,36 @@ def easy_apply(context: BrowserContext, job_url: str, resume_text: str, profile_
 
     print(f"  [LINKEDIN EASY APPLY] Opening job page: {target_url[:80]}...")
     try:
-        page.goto(target_url, timeout=25000)
-        human_delay((2, 4))
+        page.goto(target_url, wait_until="domcontentloaded", timeout=25000)
+        human_delay((2, 3))
         ensure_english_linkedin(page)
     except Exception as e:
         page.close()
         return {"status": "error", "reason": f"Could not load LinkedIn job page: {e}"}
 
-    apply_btn = page.locator("button.jobs-apply-button, button:has-text('Easy Apply'), button:has-text('Apply now'), a:has-text('Easy Apply')")
+    apply_selectors = "button.jobs-apply-button, button:has-text('Easy Apply'), button:has-text('Apply now'), a:has-text('Easy Apply')"
+    try:
+        page.wait_for_selector(apply_selectors, timeout=8000, state="visible")
+    except Exception:
+        pass
+
+    apply_btn = page.locator(apply_selectors)
     if apply_btn.count() == 0:
-        page.close()
-        return {"status": "skipped", "reason": "No Easy Apply button found on page"}
+        human_delay((2, 3))
+        apply_btn = page.locator(apply_selectors)
+        if apply_btn.count() == 0:
+            page.close()
+            return {"status": "skipped", "reason": "No Easy Apply button found on page"}
 
     try:
         apply_btn.first.click(force=True)
         print(f"  [LINKEDIN EASY APPLY] Opened Easy Apply modal for '{company_name}'.")
-        human_delay((2, 4))
+        modal_query = "div.jobs-easy-apply-modal, div.jobs-easy-apply-content, [role='dialog']"
+        try:
+            page.wait_for_selector(modal_query, timeout=6000, state="visible")
+        except Exception:
+            pass
+        human_delay((2, 3))
     except Exception as e:
         page.close()
         return {"status": "error", "reason": f"Could not click Easy Apply button: {e}"}

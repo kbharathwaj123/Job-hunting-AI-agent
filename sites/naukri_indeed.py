@@ -17,8 +17,14 @@ def search_naukri(context: BrowserContext, roles: list, locations: list) -> list
             url = f"https://www.naukri.com/{role.lower().replace(' ', '-')}-jobs-in-{loc.lower().replace(' ', '-')}"
             print(f"  [NAUKRI SEARCH] Opening: {url[:80]}...")
             try:
-                page.goto(url, timeout=25000)
-                human_delay((3, 5))
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                # Explicitly wait for job cards to render on the page
+                card_query = "div.srp-jobtuple-wrapper, article.jobTuple, div.jobTuple, div.cust-job-tuple"
+                try:
+                    page.wait_for_selector(card_query, timeout=8000, state="attached")
+                except Exception:
+                    pass
+                human_delay((2, 4))
             except Exception as e:
                 print(f"  [NAUKRI SEARCH ERROR] {e}")
                 continue
@@ -85,8 +91,14 @@ def search_indeed(context: BrowserContext, roles: list, locations: list) -> list
             
             print(f"  [INDEED SEARCH] Opening: {url[:80]}...")
             try:
-                page.goto(url, timeout=25000)
-                human_delay((4, 7))
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                # Explicitly wait for Indeed job result cards or containers to load
+                card_query = "div.job_seen_beacon, td.resultContent, div.cardOutline, div.slider_item, div.jobsearch-ResultsList, a.jcs-JobTitle"
+                try:
+                    page.wait_for_selector(card_query, timeout=10000, state="attached")
+                except Exception:
+                    pass
+                human_delay((3, 5))
             except Exception as e:
                 print(f"  [INDEED SEARCH ERROR] {e}")
                 continue
@@ -96,7 +108,9 @@ def search_indeed(context: BrowserContext, roles: list, locations: list) -> list
                 "td.resultContent",
                 "div.cardOutline",
                 "div.slider_item",
-                "div.jobsearch-ResultsList > div"
+                "div.jobsearch-ResultsList > div",
+                "div[data-testid='slider_item']",
+                "li.css-5lfssm"
             ]
 
             cards = []
@@ -118,7 +132,7 @@ def search_indeed(context: BrowserContext, roles: list, locations: list) -> list
                     comp_el = card.locator("span.companyName, span[data-testid='company-name'], div.company_location span")
                     company = comp_el.first.inner_text().strip() if comp_el.count() > 0 else "Company"
 
-                    snippet_el = card.locator("div.job-snippet, table.jobCardShelfContainer")
+                    snippet_el = card.locator("div.job-snippet, table.jobCardShelfContainer, ul.css-1f9gfl6")
                     snippet_text = snippet_el.first.inner_text().strip() if snippet_el.count() > 0 else ""
 
                     link = title_el.first.get_attribute("href") or ""
@@ -133,7 +147,7 @@ def search_indeed(context: BrowserContext, roles: list, locations: list) -> list
                         })
                 except Exception:
                     continue
-            human_delay((3, 6))
+            human_delay((2, 4))
 
     page.close()
     return results
@@ -145,8 +159,8 @@ def apply_naukri(context: BrowserContext, job_url: str, resume_text: str, profil
     page.set_default_timeout(30000)
     
     try:
-        page.goto(job_url, timeout=25000)
-        human_delay((3, 5))
+        page.goto(job_url, wait_until="domcontentloaded", timeout=25000)
+        human_delay((2, 4))
     except Exception as e:
         page.close()
         return {"status": "error", "reason": f"Could not load Naukri job: {e}"}
@@ -154,16 +168,28 @@ def apply_naukri(context: BrowserContext, job_url: str, resume_text: str, profil
     # Fetch full job description from opened page if available
     full_description = ""
     try:
-        desc_el = page.locator("section.styles_job-desc-container__rfv3f, div.job-desc, section.job-details, div.styles_jdc__description__45_9Z")
+        desc_query = "section.styles_job-desc-container__rfv3f, div.job-desc, section.job-details, div.styles_jdc__description__45_9Z"
+        page.wait_for_selector(desc_query, timeout=5000, state="attached")
+        desc_el = page.locator(desc_query)
         if desc_el.count() > 0:
             full_description = desc_el.first.inner_text().strip()
     except Exception:
         pass
 
-    apply_btn = page.locator("button:has-text('Apply'), #apply-button, button.apply-button, span:has-text('Apply'), button:has-text('Apply on company site')")
+    apply_selectors = "button:has-text('Apply'), #apply-button, button.apply-button, span:has-text('Apply'), button:has-text('Apply on company site')"
+    try:
+        page.wait_for_selector(apply_selectors, timeout=8000, state="visible")
+    except Exception:
+        pass
+
+    apply_btn = page.locator(apply_selectors)
     if apply_btn.count() == 0:
-        page.close()
-        return {"status": "skipped", "reason": "No Apply button found (may already be applied)"}
+        # Give a fallback delay and re-check before declaring skipped
+        human_delay((2, 3))
+        apply_btn = page.locator(apply_selectors)
+        if apply_btn.count() == 0:
+            page.close()
+            return {"status": "skipped", "reason": "No Apply button found (may already be applied)"}
 
     try:
         apply_btn.first.click(force=True)
@@ -184,7 +210,13 @@ def apply_naukri(context: BrowserContext, job_url: str, resume_text: str, profil
         return {"status": "submitted", "reason": "Instant 1-click application verified", "screenshot": shot, "description": full_description}
 
     # Check for drawer or chatbot dialog
-    drawer = active_page.locator("div.drawer-wrapper, div.chatbot-container, div.custom-apply, div.apply-drawer, [class*='drawer']")
+    drawer_selectors = "div.drawer-wrapper, div.chatbot-container, div.custom-apply, div.apply-drawer, [class*='drawer']"
+    try:
+        active_page.wait_for_selector(drawer_selectors, timeout=5000, state="visible")
+    except Exception:
+        pass
+
+    drawer = active_page.locator(drawer_selectors)
     target_form = drawer.first if (drawer.count() > 0 and drawer.first.is_visible()) else active_page
 
     submitted = False
@@ -236,16 +268,25 @@ def apply_indeed(context: BrowserContext, job_url: str, resume_text: str, profil
     page.set_default_timeout(30000)
     
     try:
-        page.goto(job_url, timeout=25000)
-        human_delay((3, 5))
+        page.goto(job_url, wait_until="domcontentloaded", timeout=25000)
+        human_delay((2, 4))
     except Exception as e:
         page.close()
         return {"status": "error", "reason": f"Could not load Indeed job: {e}"}
 
-    apply_btn = page.locator("button:has-text('Apply now'), a:has-text('Apply now'), #indeedApplyButton")
+    apply_selectors = "button:has-text('Apply now'), a:has-text('Apply now'), #indeedApplyButton, button[id*='indeedApply'], div[id*='indeedApply']"
+    try:
+        page.wait_for_selector(apply_selectors, timeout=8000, state="visible")
+    except Exception:
+        pass
+
+    apply_btn = page.locator(apply_selectors)
     if apply_btn.count() == 0:
-        page.close()
-        return {"status": "skipped", "reason": "No Indeed Apply button found"}
+        human_delay((2, 3))
+        apply_btn = page.locator(apply_selectors)
+        if apply_btn.count() == 0:
+            page.close()
+            return {"status": "skipped", "reason": "No Indeed Apply button found"}
 
     try:
         apply_btn.first.click()
