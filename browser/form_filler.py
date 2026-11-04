@@ -79,21 +79,46 @@ def select_best_option(select_element, question: str, resume_text: str, profile_
         return None
 
 
-def resolve_valid_resume_path(resume_file_path: str = "") -> str:
-    """Resolves a valid existing resume file path from config or defaults."""
-    candidates = [
-        resume_file_path,
-        "c:/projects/job-agent/data/Bharathwaj_Kaithoju_v2.pdf",
-        "c:/projects/job-agent/data/Bharathwaj_Kaithoju_v2.docx",
-        "c:/projects/job-agent/data/Bharathwaj_Kaithoju_Resume_Updated.pdf",
-        "c:/projects/job-agent/data/Bharathwaj_Kaithoju_Resume_Updated.docx",
-        "c:/projects/job-agent/data/base_resume.pdf",
-        "c:/projects/job-agent/data/base_resume.docx",
+def resolve_valid_resume_path(resume_file_path: str = "", preferred_ext: str = "pdf") -> str:
+    """
+    Automatically detects and selects the most recently uploaded/modified resume file.
+    Searches the data/ folder, sorting all valid .pdf and .docx resumes by last modification timestamp.
+    """
+    search_dirs = [
+        Path(__file__).parent.parent / "data",
+        Path("c:/projects/job-agent/data")
     ]
-    for c in candidates:
-        if c and os.path.exists(c):
-            return str(Path(c).resolve())
-    return ""
+    
+    candidates = []
+    if resume_file_path and os.path.exists(resume_file_path):
+        p = Path(resume_file_path)
+        if p.is_file() and p.stat().st_size > 500:
+            candidates.append(p)
+        
+    for sdir in search_dirs:
+        if sdir.exists():
+            for f in sdir.glob("*"):
+                if f.is_file() and f.suffix.lower() in [".pdf", ".docx"]:
+                    if not f.name.startswith("~$") and not f.name.startswith("."):
+                        if f.stat().st_size > 500:
+                            candidates.append(f)
+                            
+    if not candidates:
+        return ""
+        
+    # De-duplicate candidates by resolved absolute path
+    unique_candidates = list({str(c.resolve()): c for c in candidates}.values())
+    
+    # 1. Prefer preferred extension (e.g. .pdf for uploads)
+    matching = [c for c in unique_candidates if c.suffix.lower() == f".{preferred_ext.lower().lstrip('.')}"]
+    if matching:
+        matching = sorted(matching, key=lambda p: p.stat().st_mtime, reverse=True)
+        chosen = matching[0]
+        return str(chosen.resolve())
+        
+    # 2. Fallback to newest among all candidates
+    sorted_all = sorted(unique_candidates, key=lambda p: p.stat().st_mtime, reverse=True)
+    return str(sorted_all[0].resolve())
 
 
 def handle_file_uploads(page: Page, resume_file_path: str = "") -> int:

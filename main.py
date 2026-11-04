@@ -31,6 +31,7 @@ from pathlib import Path
 from docx import Document
 
 from browser.session import get_browser_context
+from browser.form_filler import resolve_valid_resume_path
 from data.db import init_db, already_seen, record, today_count
 from ats.scorer import score_resume_against_job
 from ats.experience import is_experience_eligible
@@ -50,6 +51,20 @@ def load_config():
 
 
 def load_base_resume_text(path: str) -> str:
+    path_obj = Path(path)
+    if path_obj.suffix.lower() == ".pdf":
+        try:
+            import fitz
+            doc = fitz.open(path)
+            pages = []
+            for page in doc:
+                text = page.get_text()
+                if text.strip():
+                    pages.append(text.strip())
+            return "\n".join(pages)
+        except Exception as e:
+            print(f"[WARNING] Could not parse PDF text: {e}")
+
     doc = Document(path)
     lines = []
     for p in doc.paragraphs:
@@ -171,11 +186,24 @@ def main():
     # Ask user or parse CLI args for application mode
     app_mode = prompt_application_mode()
 
-    resume_path = cfg["paths"]["base_resume"]
-    if not Path(resume_path).exists():
-        print(f"[WARNING] No resume found at {resume_path}. "
-              f"Export your resume as .docx and place it there, then re-run.")
+    # Automatically detect the latest uploaded/modified resume in data/ folder
+    resume_path = resolve_valid_resume_path(cfg["paths"].get("base_resume", ""), preferred_ext="docx")
+    upload_resume_path = resolve_valid_resume_path(cfg["paths"].get("base_resume_pdf", ""), preferred_ext="pdf") or resume_path
+
+    if not resume_path or not Path(resume_path).exists():
+        print(f"[WARNING] No valid resume found in data/ folder. "
+              f"Place your .docx or .pdf resume there, then re-run.")
         return
+
+    import datetime
+    mod_time = datetime.datetime.fromtimestamp(os.path.getmtime(resume_path)).strftime('%Y-%m-%d %H:%M:%S')
+    print(f"\n[LATEST RESUME DETECTED 📄]")
+    print(f"  -> Selected Text/ATS Resume: {Path(resume_path).name} (Last Updated: {mod_time})")
+    if upload_resume_path and upload_resume_path != resume_path:
+        up_mod_time = datetime.datetime.fromtimestamp(os.path.getmtime(upload_resume_path)).strftime('%Y-%m-%d %H:%M:%S')
+        print(f"  -> Selected Upload File:    {Path(upload_resume_path).name} (Last Updated: {up_mod_time})\n")
+    else:
+        print()
 
     base_resume_text = load_base_resume_text(resume_path)
     cap = cfg["automation"]["daily_application_cap"]
@@ -389,7 +417,7 @@ def main():
                 print(f"  [MODE 2: COMPANY WEBSITE] Navigating to official careers portal for '{job['company']}'...")
                 result = apply_company_website(
                     context, job["company"], job["title"], job["url"],
-                    base_resume_text, profile_answers, resume_path, auto_submit
+                    base_resume_text, profile_answers, upload_resume_path, auto_submit
                 )
                 source_label = "Company Portal"
             else:
@@ -398,11 +426,10 @@ def main():
                     result = linkedin.easy_apply(context, job["url"], base_resume_text, profile_answers, tailored.get("summary", ""), auto_submit, company_name=job["company"])
                 elif job["source"] == "naukri":
                     result = apply_naukri(context, job["url"], base_resume_text, profile_answers,
-                                           resume_path, auto_submit, company_name=job["company"])
+                                           upload_resume_path, auto_submit, company_name=job["company"])
                 elif job["source"] == "indeed":
-                    pdf_path = cfg["paths"].get("base_resume_pdf", "")
                     result = apply_indeed(context, job["url"], base_resume_text, profile_answers,
-                                           pdf_path, auto_submit, company_name=job["company"])
+                                           upload_resume_path, auto_submit, company_name=job["company"])
                 else:
                     result = {"status": "staged", "reason": f"{job['source']} apply flow not yet built"}
 
