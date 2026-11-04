@@ -14,8 +14,10 @@ Flow per run:
   8. Log everything to data/applications.db
 """
 
+import os
 import sys
 import io
+import datetime
 
 if hasattr(sys.stdout, 'buffer'):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
